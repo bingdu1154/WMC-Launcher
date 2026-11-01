@@ -1,0 +1,279 @@
+/* =============================================================================
+   WMC 启动器 · 全局拖拽安装 + 通用信笺弹窗
+   -----------------------------------------------------------------------------
+   · .wmc-drop      拖拽时的全屏水墨遮罩（所有页面通用）
+   · .wmc-dialog    确认 / 结果弹窗（拖拽安装、版本详情都用它）
+   这两个组件是所有页面共享的，所以放在独立文件里，不依赖首页样式。
+   ============================================================================= */
+
+@layer wmc.components {
+
+  /* ================================================================ 拖拽遮罩 */
+  .wmc-drop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--wmc-dur) var(--wmc-ease);
+  }
+
+  /* 水墨遮罩：半透明墨色 + 极淡水墨山峦 */
+  .wmc-drop__mask {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(20, 30, 34, 0.52);
+    background-image: var(--wmc-ink-mountain);
+    background-repeat: repeat-x;
+    background-position: left bottom;
+    background-size: 1200px 260px;
+    backdrop-filter: blur(3px);
+  }
+
+  .wmc-drop.is-active { opacity: 1; }
+
+  .wmc-drop__panel {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    min-width: min(520px, 84vw);
+    padding: 34px 40px;
+    text-align: center;
+    background: rgba(251, 253, 252, 0.96);
+    border: 1px dashed var(--wmc-jade);      /* 虚线 = 「把东西放进来」 */
+    border-radius: var(--wmc-r-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    transform: scale(0.97);
+    transition: transform var(--wmc-dur-slow) var(--wmc-ease-out);
+  }
+
+  .wmc-drop.is-active .wmc-drop__panel { transform: none; }
+
+  .wmc-drop__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 54px;
+    height: 54px;
+    color: var(--wmc-jade);
+    background: var(--wmc-jade-soft);
+    border: 1px solid var(--wmc-jade-line);
+    border-radius: 50%;
+  }
+
+  .wmc-drop__icon svg { width: 26px; height: 26px; }
+
+  .wmc-drop__title {
+    font-family: var(--wmc-font-serif);
+    font-size: 19px;
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.08em;
+    color: var(--wmc-ink);
+  }
+
+  .wmc-drop__hint {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-drop__badge {
+    padding: 3px 10px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--wmc-jade-deep);
+    background: var(--wmc-jade-soft);
+    border: 1px solid var(--wmc-jade-line);
+    border-radius: var(--wmc-r-pill);
+  }
+
+  /* ================================================================ 信笺弹窗 */
+  .wmc-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--wmc-scrim);
+    opacity: 0;
+    transition: opacity var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-dialog.is-open { opacity: 1; }
+
+  .wmc-dialog__panel {
+    position: relative;
+    width: min(560px, 88vw);
+    max-height: 82vh;
+    overflow-y: auto;
+    padding: 22px 24px 20px;
+    background-color: var(--wmc-paper);
+    background-image: var(--wmc-letter-lines);
+    border: 1px solid var(--wmc-hairline);
+    border-left: 2px solid var(--wmc-cinnabar-line);
+    border-radius: var(--wmc-r-lg);
+    box-shadow: var(--wmc-sh-3);
+    transform: translateY(10px) scale(0.985);
+    transition: transform var(--wmc-dur-slow) var(--wmc-ease-out);
+  }
+
+  .wmc-dialog__panel::-webkit-scrollbar { width: 6px; }
+  .wmc-dialog__panel::-webkit-scrollbar-track { background: transparent; }
+  .wmc-dialog__panel::-webkit-scrollbar-thumb {
+    background: rgba(122, 178, 164, 0.40);
+    border-radius: 3px;
+  }
+
+  .wmc-dialog.is-open .wmc-dialog__panel { transform: none; }
+
+  .wmc-dialog__hd {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--wmc-hairline);
+  }
+
+  .wmc-dialog__title {
+    font-family: var(--wmc-font-serif);
+    font-size: var(--wmc-fs-lg);
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.1em;
+    color: var(--wmc-ink);
+  }
+
+  .wmc-dialog__title::before {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 14px;
+    margin-right: 9px;
+    vertical-align: -1px;
+    background: var(--wmc-jade);
+    border-radius: 2px;
+  }
+
+  .wmc-dialog__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    margin-left: auto;
+    color: var(--wmc-ink-3);
+    background: transparent;
+    border: 0;
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    transition: background-color var(--wmc-dur-fast) var(--wmc-ease),
+                color var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-dialog__close:hover { color: var(--wmc-deep); background: rgba(43, 58, 66, 0.07); }
+
+  .wmc-dialog__bd { padding-top: 14px; }
+
+  .wmc-dialog__hint {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--wmc-hairline);
+    font-size: 11.5px;
+    line-height: 1.75;
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-dialog__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  /* 弹窗内的键值行 */
+  .wmc-kv {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    padding: 9px 2px;
+    border-top: 1px solid var(--wmc-hairline);
+  }
+
+  .wmc-kv:first-child { border-top: 0; }
+
+  .wmc-kv__key { font-size: 12.5px; color: var(--wmc-ink-3); }
+
+  .wmc-kv__val {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--wmc-ink);
+    word-break: break-all;
+  }
+
+  .wmc-kv__val--ok { color: var(--wmc-jade-deep); }
+  .wmc-kv__val--warn { color: var(--wmc-cinnabar-dark); }
+  .wmc-kv__val--mono { font-family: var(--wmc-font-mono); font-size: 12px; }
+
+  /* 弹窗内标签（整合包类型） */
+  .wmc-dialog__tags {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .wmc-pill {
+    padding: 3px 10px;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    color: var(--wmc-jade-deep);
+    background: var(--wmc-jade-soft);
+    border: 1px solid var(--wmc-jade-line);
+    border-radius: var(--wmc-r-pill);
+  }
+
+  .wmc-pill--warn {
+    color: var(--wmc-cinnabar-dark);
+    background: var(--wmc-cinnabar-soft);
+    border-color: var(--wmc-cinnabar-line);
+  }
+
+  .wmc-pill--muted {
+    color: var(--wmc-ink-3);
+    background: rgba(43, 58, 66, 0.05);
+    border-color: var(--wmc-line);
+  }
+
+  /* 弹窗内主按钮 */
+  .wmc-primaryBtn {
+    padding: 9px 22px;
+    font-family: var(--wmc-font-serif);
+    font-size: 13.5px;
+    letter-spacing: 0.12em;
+    color: #FFF4F1;
+    background: var(--wmc-cinnabar);
+    border: 1px solid var(--wmc-cinnabar-dark);
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255, 244, 241, 0.25);
+    transition: background-color var(--wmc-dur) var(--wmc-ease),
+                transform var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-primaryBtn:hover { background: var(--wmc-cinnabar-dark); transform: translateY(-1px); }
+  .wmc-primaryBtn[disabled] { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .wmc-ghostBtn--sm { padding: 8px 18px; font-size: 12.5px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wmc-drop, .wmc-drop__panel, .wmc-dialog, .wmc-dialog__panel { transition: none; }
+  }
+}

@@ -1,0 +1,476 @@
+/* =============================================================================
+   WMC —— 下载中心（左侧分类卷轴 + 3~4 列卡片网格 + 触底加载）
+   ============================================================================= */
+
+@layer wmc.panels {
+
+  .wmc-dc {
+    display: grid;
+    grid-template-columns: var(--wmc-sidebar-w) minmax(0, 1fr);
+    gap: 16px;
+    height: 100%;
+    min-height: 0;               /* 关键：让内部滚动而不是撑破页面 */
+    padding: 4px 2px 0;
+  }
+
+  /* ------------------------------------------------------------------ 左侧分类 */
+  .wmc-dc__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 8px;
+    background: linear-gradient(180deg, var(--wmc-paper), var(--wmc-paper-2));
+    background-image: var(--wmc-paper-texture);
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-md);
+    box-shadow: var(--wmc-sh-1), var(--wmc-sh-inset);
+    overflow-y: auto;
+  }
+
+  .wmc-dc__asideTitle {
+    padding: 4px 8px 8px;
+    font-size: var(--wmc-fs-xs);
+    letter-spacing: 0.18em;
+    color: var(--wmc-ink-3);
+    border-bottom: 1px solid var(--wmc-line);
+    margin-bottom: 6px;
+  }
+
+  /* 分类列表容器（内侧再排一列，避免和外层标题挤在一起） */
+  .wmc-dc__cats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  /* 分类项：默认朴素，悬停泛起纸色 */
+  .wmc-dc__cat {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px 9px 14px;
+    font-family: inherit;
+    font-size: var(--wmc-fs-sm);
+    color: var(--wmc-ink-2);
+    background: transparent;
+    border: 1px solid transparent;
+    border-left: 3px solid transparent;
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    transition: background-color var(--wmc-dur-fast) var(--wmc-ease),
+                border-color var(--wmc-dur-fast) var(--wmc-ease),
+                color var(--wmc-dur-fast) var(--wmc-ease),
+                transform var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-dc__cat:hover {
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--wmc-ink);
+    transform: translateX(1px);
+  }
+
+  /* 选中态：金边卷轴（金色左竖线 + 卷轴渐层 + 细金描边） */
+  .wmc-dc__cat--active {
+    color: var(--wmc-ink);
+    font-weight: var(--wmc-fw-bold);
+    background: linear-gradient(90deg,
+      rgba(212, 175, 55, 0.20) 0%,
+      rgba(212, 175, 55, 0.08) 55%,
+      rgba(212, 175, 55, 0.02) 100%);
+    border-color: var(--wmc-gold-line);
+    border-left-color: var(--wmc-gold);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  }
+
+  /* 选中态的卷轴「轴头」装饰 */
+  .wmc-dc__cat--active::before,
+  .wmc-dc__cat--active::after {
+    content: "";
+    position: absolute;
+    left: -3px;
+    width: 3px;
+    height: 7px;
+    background: var(--wmc-gold-deep);
+    border-radius: 2px;
+  }
+  .wmc-dc__cat--active::before { top: 5px; }
+  .wmc-dc__cat--active::after { bottom: 5px; }
+
+  .wmc-dc__catIcon {
+    flex: 0 0 auto;
+    width: 18px;
+    text-align: center;
+    font-size: 15px;
+    line-height: 1;
+    filter: saturate(0.85);
+  }
+
+  .wmc-dc__catName { flex: 1 1 auto; }
+
+  .wmc-dc__catCount {
+    font-family: var(--wmc-font-mono);
+    font-size: 11px;
+    color: var(--wmc-ink-4);
+  }
+
+  /* 朱砂印章：选中分类的「印」 */
+  .wmc-dc__seal {
+    flex: 0 0 auto;
+    display: none;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--wmc-font-serif);
+    font-size: 12px;
+    font-weight: var(--wmc-fw-bold);
+    color: #FFF3EC;
+    background: var(--wmc-cinnabar);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: var(--wmc-r-xs);
+    box-shadow: 0 1px 3px rgba(163, 42, 36, 0.45);
+    transform: rotate(-5deg);
+  }
+
+  .wmc-dc__cat--active .wmc-dc__seal { display: inline-flex; }
+
+  .wmc-dc__cat--active .wmc-dc__catIcon { filter: none; }
+
+  /* ------------------------------------------------------------------ 右侧主体 */
+  .wmc-dc__main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .wmc-dc__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    background: var(--wmc-paper);
+    background-image: var(--wmc-paper-texture);
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-md);
+    box-shadow: var(--wmc-sh-1);
+  }
+
+  .wmc-dc__search {
+    position: relative;
+    flex: 1 1 220px;
+    min-width: 180px;
+  }
+
+  .wmc-dc__search input {
+    width: 100%;
+    padding: 7px 12px 7px 32px;
+    font-family: inherit;
+    font-size: var(--wmc-fs-sm);
+    color: var(--wmc-ink);
+    background: var(--wmc-paper);
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-sm);
+    box-shadow: var(--wmc-sh-inset);
+    transition: border-color var(--wmc-dur-fast) var(--wmc-ease),
+                box-shadow var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-dc__search input::placeholder { color: var(--wmc-ink-4); }
+
+  .wmc-dc__search input:focus {
+    outline: none;
+    border-color: var(--wmc-gold);
+    box-shadow: 0 0 0 2px var(--wmc-gold-glow), var(--wmc-sh-inset);
+  }
+
+  .wmc-dc__searchIcon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: var(--wmc-ink-4);
+    pointer-events: none;
+  }
+
+  .wmc-dc__searchIcon svg { width: 100%; height: 100%; }
+
+  .wmc-dc__meta {
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+    white-space: nowrap;
+  }
+
+  .wmc-dc__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 12px;
+    overflow-y: auto;
+    padding: 2px 4px 16px 0;
+    scroll-behavior: smooth;
+  }
+
+  /* ------------------------------------------------------------------ 卡片网格 */
+  /* 3~4 列自适应：列宽不足时自动降列，绝不用单列大长条 */
+  .wmc-dc__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--wmc-card-min), 1fr));
+    gap: 16px;
+    align-content: start;
+  }
+
+  .wmc-mod {
+    display: flex;
+    flex-direction: column;
+    background: var(--wmc-paper);
+    border: 1px solid var(--wmc-line-2);
+    border-radius: var(--wmc-r-md);
+    box-shadow: var(--wmc-sh-1);
+    overflow: hidden;
+    cursor: pointer;
+    /* 便宜的长列表优化：视口外的卡片跳过渲染 */
+    content-visibility: auto;
+    contain-intrinsic-size: 320px 300px;
+    transition: transform var(--wmc-dur) var(--wmc-ease),
+                box-shadow var(--wmc-dur) var(--wmc-ease),
+                border-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  /* 悬停：轻微上浮 + 阴影加深 + 金边微发光 */
+  .wmc-mod:hover {
+    transform: translateY(-3px);
+    border-color: var(--wmc-gold-line);
+    box-shadow: var(--wmc-sh-lift), 0 0 0 1px var(--wmc-gold-glow);
+  }
+
+  .wmc-mod:focus-within { box-shadow: var(--wmc-sh-lift), 0 0 0 2px var(--wmc-gold-glow); }
+
+  /* ---------------- 封面 ---------------- */
+  .wmc-mod__cover {
+    position: relative;
+    aspect-ratio: var(--wmc-cover-ratio);
+    background: var(--wmc-paper-2);
+    overflow: hidden;
+  }
+
+  .wmc-mod__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transform: scale(1.02);
+    transition: opacity var(--wmc-dur-slow) var(--wmc-ease-out),
+                transform var(--wmc-dur-slow) var(--wmc-ease-out);
+  }
+
+  .wmc-mod__img.is-loaded { opacity: 1; transform: scale(1); }
+  .wmc-mod:hover .wmc-mod__img.is-loaded { transform: scale(1.04); }
+
+  /* 封面骨架（图未到时不留白） */
+  .wmc-mod__coverSkeleton { position: absolute; inset: 0; border-radius: 0; }
+  .wmc-mod__coverSkeleton.is-done { display: none; }
+
+  /* 封面加载失败时的兜底：分类首字 + 渐变底 */
+  .wmc-mod__coverFallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--wmc-font-serif);
+    font-size: 46px;
+    color: rgba(255, 255, 255, 0.26);
+    background: linear-gradient(135deg, var(--wmc-indigo), #5B7C99);
+  }
+
+  /* 右上角来源角标 */
+  .wmc-mod__badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: #FFF7EF;
+    background: var(--wmc-indigo-soft);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: var(--wmc-r-xs);
+    backdrop-filter: blur(3px);
+    box-shadow: 0 1px 4px rgba(31, 27, 22, 0.28);
+  }
+
+  .wmc-mod__badge--official { background: rgba(193, 54, 46, 0.88); }
+  .wmc-mod__badge--modrinth { background: rgba(47, 122, 88, 0.88); }
+  .wmc-mod__badge--curseforge { background: var(--wmc-indigo-soft); }
+
+  /* 已安装 / 已下载标记 */
+  .wmc-mod__flag {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--wmc-jade);
+    background: rgba(251, 248, 240, 0.92);
+    border: 1px solid rgba(63, 122, 85, 0.4);
+    border-radius: var(--wmc-r-xs);
+  }
+
+  /* 下载进度条（贴卡片底边） */
+  .wmc-mod__progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgba(31, 27, 22, 0.10);
+    display: none;
+  }
+
+  .wmc-mod.is-downloading .wmc-mod__progress { display: block; }
+
+  .wmc-mod__progressFill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--wmc-gold-soft), var(--wmc-cinnabar));
+    transition: width var(--wmc-dur) var(--wmc-ease);
+  }
+
+  /* ---------------- 正文 ---------------- */
+  .wmc-mod__bd {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px 10px;
+    flex: 1 1 auto;
+  }
+
+  .wmc-mod__title {
+    margin: 0;
+    font-size: var(--wmc-fs-md);
+    font-weight: var(--wmc-fw-bold);
+    line-height: var(--wmc-lh-tight);
+    color: var(--wmc-ink);
+    /* 标题最多两行，避免卡片高度参差 */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .wmc-mod__author {
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-mod__author b {
+    font-weight: var(--wmc-fw-normal);
+    color: var(--wmc-ink-2);
+  }
+
+  /* 简介固定 2 行 + 省略号 */
+  .wmc-mod__desc {
+    margin: 4px 0 0;
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .wmc-mod__tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  /* ---------------- 底部栏 ---------------- */
+  .wmc-mod__ft {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px 12px;
+    border-top: 1px solid var(--wmc-line);
+    background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.05));
+  }
+
+  .wmc-mod__dl {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--wmc-font-mono);
+    font-size: 11px;
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-mod__dl svg { width: 12px; height: 12px; opacity: 0.7; }
+
+  /* 下载量图标包装（JS 里 innerHTML 注入 SVG 用） */
+  .wmc-mod__dlIcon { display: inline-flex; width: 12px; height: 12px; }
+  .wmc-mod__dlIcon svg { width: 100%; height: 100%; }
+
+  /* 体积文本：浅墨色，靠左紧跟下载量 */
+  .wmc-mod__size {
+    margin-left: 2px;
+    color: var(--wmc-ink-4);
+  }
+
+  /* 「获取」按钮：朱砂红，悬停金边（继承 .wmc-btn--primary 的悬停金光） */
+  .wmc-mod__get {
+    margin-left: auto;
+    padding: 5px 16px;
+    font-family: var(--wmc-font-serif);
+    font-size: var(--wmc-fs-sm);
+    letter-spacing: 0.1em;
+  }
+
+  .wmc-mod__get.is-busy { pointer-events: none; }
+
+  /* 卡片加载失败 */
+  .wmc-mod--error { opacity: 0.72; }
+  .wmc-mod--error .wmc-mod__img { display: none; }
+
+  /* ------------------------------------------------------------------ 加载更多 */
+  .wmc-dc__more {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px 0 26px;
+    color: var(--wmc-ink-3);
+    font-size: var(--wmc-fs-sm);
+  }
+
+  .wmc-dc__sentinel { grid-column: 1 / -1; height: 1px; }
+
+  /* 骨架卡片：与真实卡片同尺寸，避免加载时跳动 */
+  .wmc-mod--skeleton { pointer-events: none; }
+  .wmc-mod--skeleton .wmc-mod__bd { gap: 10px; padding-top: 14px; }
+
+  /* ------------------------------------------------------------------ 窄窗口降级 */
+  @media (max-width: 1000px) {
+    .wmc-dc { grid-template-columns: 150px minmax(0, 1fr); }
+    .wmc-dc__catName { font-size: var(--wmc-fs-xs); }
+  }
+
+  @media (max-width: 720px) {
+    .wmc-dc { grid-template-columns: minmax(0, 1fr); }
+    .wmc-dc__aside { flex-direction: row; overflow-x: auto; }
+  }
+}

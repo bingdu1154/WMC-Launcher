@@ -1,0 +1,91 @@
+<!--
+  WMC 启动器 · 全局外壳（左侧导航 + 顶部栏 + 页面宿主）
+  ---------------------------------------------------------------------------
+  用法：
+    1) 把这段 DOM 放进你的应用根节点（外面不必再包容器）；
+    2) 引入样式：wmc-tokens / wmc-primitives / wmc-shell / wmc-home / wmc-download-center；
+    3) 渲染脚本里：
+         import { createBridge } from './scripts/wmc-bridge.js';
+         import { createShell } from './scripts/wmc-shell.js';
+         import { hydrateIcons } from './scripts/wmc-dom.js';
+
+         const bridge = createBridge();
+         const appRoot = document.querySelector('[data-wmc-app]');
+         hydrateIcons(appRoot);                       // 填入搜索 / 齿轮 / 窗口按钮图标
+         const shell = createShell(appRoot, { bridge });
+         shell.addPage('home', (host, api) => { … }); // 各页面实现
+         await shell.navigate('home');
+
+  说明：
+    · data-wmc-* 是挂载点，不要删；
+    · 导航菜单（分组 / 选中态细线 / MOD·PACK 角标）由 wmc-shell.js 按 NAV_GROUPS 生成；
+    · 顶部栏一行装下：两行页目标题 + 搜索框 + 设置齿轮 + 窗口三键；
+    · 未实现的路由会自动显示「任务 X 待开发」占位卡，不会出现死链。
+-->
+<div class="wmc-scope wmc-app" data-wmc-app>
+
+  <!-- ===================== 左侧导航（深黛蓝 · 无暗纹） ===================== -->
+  <nav class="wmc-app__nav" aria-label="主导航">
+    <!-- Logo：青玉细描边方印（内刻「W」） -->
+    <div class="wmc-nav__brand">
+      <span class="wmc-nav__seal" aria-hidden="true">W</span>
+      <div class="wmc-nav__brandText">
+        <div class="wmc-nav__brandName">WMC</div>
+        <div class="wmc-nav__brandPinyin">WMC LAUNCHER</div>
+      </div>
+    </div>
+
+    <!-- 菜单：由外壳按 NAV_GROUPS 生成（开始 / 游戏管理 / 资源中心 / 系统 四组 + 英文角标），
+         外层 .wmc-nav__scroll 负责内部平滑滚动 + 极细青色滚动条 -->
+    <div class="wmc-nav__scroll" data-wmc-nav-menu></div>
+
+    <!-- 左下角账号卡：深青半透明 + 极细青边 + 状态点 -->
+    <div class="wmc-nav__user" data-wmc-user role="button" tabindex="0" aria-label="账户与皮肤">
+      <div class="wmc-nav__userTop">
+        <span class="wmc-nav__avatar" data-wmc-user-avatar aria-hidden="true">W</span>
+        <div>
+          <div class="wmc-nav__userName" data-wmc-user-name>冒险者</div>
+          <div class="wmc-nav__state" data-wmc-user-state>
+            <span class="wmc-nav__dot wmc-nav__dot--offline"></span><span>离线登录</span>
+          </div>
+        </div>
+      </div>
+      <div class="wmc-nav__version" data-wmc-user-version>WMC · v1.0.0</div>
+    </div>
+  </nav>
+
+  <!-- ===================== 主内容区 ===================== -->
+  <main class="wmc-app__main">
+
+    <!-- 顶部栏：两行页目标题 + 搜索 + 齿轮 + 窗口控制 -->
+    <header class="wmc-topbar">
+      <div class="wmc-pageTitle">
+        <span class="wmc-pageTitle__en" data-wmc-title-en>DASHBOARD</span>
+        <span class="wmc-pageTitle__cn" data-wmc-title-cn>首页</span>
+      </div>
+
+      <div class="wmc-topbar__search">
+        <span class="wmc-topbar__searchIcon" data-wmc-icon="search" aria-hidden="true"></span>
+        <input type="search" data-wmc-search placeholder="搜索模组 / 整合包 / 玩家…" aria-label="全局搜索" />
+      </div>
+
+      <div class="wmc-topbar__actions">
+        <button class="wmc-winbtn" type="button" data-wmc-gear aria-label="设置" title="启动器设置">
+          <span data-wmc-icon="gear" aria-hidden="true"></span>
+        </button>
+        <button class="wmc-winbtn" type="button" data-wmc-win="minimize" aria-label="最小化" title="最小化">
+          <span data-wmc-icon="minus" aria-hidden="true"></span>
+        </button>
+        <button class="wmc-winbtn" type="button" data-wmc-win="maximize" aria-label="最大化" title="最大化 / 还原">
+          <span data-wmc-icon="winMax" aria-hidden="true"></span>
+        </button>
+        <button class="wmc-winbtn wmc-winbtn--close" type="button" data-wmc-win="close" aria-label="关闭" title="关闭">
+          <span data-wmc-icon="close" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 页面宿主：各页面挂到这里；未实现的页面显示占位卡 -->
+    <div class="wmc-page" data-wmc-page-host></div>
+  </main>
+</div>

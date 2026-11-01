@@ -1,0 +1,57 @@
+<!--
+  WMC 启动器 · 游戏下载页（原版版本下载）
+  ---------------------------------------------------------------------------
+  用法：把整段放进 <template data-wmc-template="game"> … </template>，
+  然后在外壳里注册（这样来回切页都会克隆一份干净骨架）：
+
+    const tpl = document.querySelector('[data-wmc-template="game"]');
+    shell.addPage('game', (host, api) => {
+      host.replaceChildren(tpl.content.cloneNode(true));
+      return mountGameDownload(host, { bridge, shell: api });
+    });
+
+  数据来源：全部走主进程真实接口（wmc:versions:*），渲染层不发任何网络请求，
+            也没有内置假版本列表 —— 没有 IPC 时会显示红字提示。
+  结构：最新正式版大卡片 → 筛选栏 → 极简版本列表
+-->
+<div class="wmc-page__inner wmc-dl" data-wmc-download>
+
+  <!-- 顶部：最新正式版大卡片（仅本页有） -->
+  <section class="wmc-dl__latest">
+    <div class="wmc-dl__deco" aria-hidden="true"></div>
+
+    <div class="wmc-dl__latestMain">
+      <div class="wmc-dl__label">LATEST RELEASE</div>
+      <div class="wmc-dl__version" data-wmc-dl-latest-version>最新正式版：读取中…</div>
+      <div class="wmc-dl__latestMeta" data-wmc-dl-latest-meta></div>
+    </div>
+
+    <div class="wmc-dl__latestAction">
+      <button class="wmc-sealBtn wmc-dl__installAll" type="button" data-wmc-dl-install-all>
+        <span class="wmc-sealBtn__icon" data-wmc-dl-install-icon aria-hidden="true"></span>一键安装最新版
+      </button>
+    </div>
+  </section>
+
+  <!-- 筛选栏：搜索 / 分类下拉 / 下载源下拉 / 刷新 / 计数 -->
+  <div class="wmc-dl__bar">
+    <div class="wmc-dl__search">
+      <span class="wmc-dl__searchIcon" data-wmc-icon="search" aria-hidden="true"></span>
+      <input type="search" data-wmc-dl-search placeholder="按版本号搜索，例如 1.21 或 26.3" aria-label="搜索版本号" />
+    </div>
+
+    <!-- 分类：正式版 / 预览版 / 远古版 / 愚人节版（自定义下拉，默认正式版） -->
+    <div data-wmc-dl-category></div>
+    <!-- 下载源：官方源 / BMCLAPI 镜像（自定义下拉） -->
+    <div data-wmc-dl-source></div>
+
+    <button class="wmc-dl__refresh" type="button" data-wmc-dl-refresh>
+      <span class="wmc-dl__refreshIcon" data-wmc-icon="refresh" aria-hidden="true"></span>刷新
+    </button>
+
+    <span class="wmc-dl__count" data-wmc-dl-count>正在读取版本清单…</span>
+  </div>
+
+  <!-- 版本列表（极简行） -->
+  <section class="wmc-dl__list" data-wmc-dl-list aria-live="polite"></section>
+</div>

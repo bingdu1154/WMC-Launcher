@@ -1,0 +1,251 @@
+/* =============================================================================
+   WMC —— 运行环境面板（分组卡片 + 左标签右值 + 状态指示）
+   ============================================================================= */
+
+@layer wmc.panels {
+
+  .wmc-env {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+    padding: 2px;
+  }
+
+  /* 外层：带微弱纸张纹理的卡片 */
+  .wmc-env__panel {
+    background-color: var(--wmc-paper);
+    background-image: var(--wmc-paper-texture);
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-lg);
+    box-shadow: var(--wmc-sh-2), var(--wmc-sh-inset);
+    overflow: hidden;
+  }
+
+  .wmc-env__hd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    background: linear-gradient(180deg, var(--wmc-paper-2), var(--wmc-paper));
+    border-bottom: 1px solid var(--wmc-gold-line);
+  }
+
+  .wmc-env__title {
+    font-size: var(--wmc-fs-xl);
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.12em;
+    color: var(--wmc-ink);
+  }
+
+  .wmc-env__subtitle {
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+    letter-spacing: 0.04em;
+  }
+
+  .wmc-env__summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .wmc-env__body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 20px 18px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* ------------------------------------------------------------------ 分组 */
+  .wmc-env__group {
+    border: 1px solid var(--wmc-line);
+    border-radius: var(--wmc-r-md);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 60%);
+    overflow: hidden;
+  }
+
+  .wmc-env__groupTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    font-size: var(--wmc-fs-sm);
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.14em;
+    color: var(--wmc-ink-2);
+    background: var(--wmc-paper-3);
+    border-bottom: 1px solid var(--wmc-line);
+  }
+
+  .wmc-env__groupTitle::before {
+    content: "";
+    width: 3px;
+    height: 12px;
+    background: var(--wmc-gold);
+    border-radius: 2px;
+  }
+
+  /* ------------------------------------------------------------------ 行 */
+  /* 左标签 / 中值 / 右控件 —— 彻底避免「表格感」：
+     不用竖线网格，用留白 + 交替的极浅底色区分行 */
+  .wmc-env__row {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: var(--wmc-row-h);
+    padding: 8px 14px;
+    transition: background-color var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-env__row + .wmc-env__row { border-top: 1px dashed var(--wmc-line); }
+  .wmc-env__row:hover { background: rgba(212, 175, 55, 0.06); }
+
+  .wmc-env__label {
+    font-size: var(--wmc-fs-sm);
+    color: var(--wmc-ink-3);       /* 标签：灰色宋体 */
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .wmc-env__value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: var(--wmc-fs-sm);
+    color: var(--wmc-ink);          /* 值：深色宋体 */
+    font-weight: var(--wmc-fw-medium);
+  }
+
+  .wmc-env__value.is-ok { color: var(--wmc-jade); }
+  .wmc-env__value.is-gold { color: var(--wmc-gold-deep); }
+  .wmc-env__value.is-warn { color: var(--wmc-cinnabar); }
+
+  .wmc-env__valueText {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .wmc-env__ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* 长路径：等宽 + 中间省略由 JS 处理，这里负责视觉 */
+  .wmc-env__path {
+    font-family: var(--wmc-font-mono);
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-2);
+    background: var(--wmc-paper-2);
+    border: 1px solid var(--wmc-line);
+    border-radius: var(--wmc-r-xs);
+    padding: 4px 8px;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    direction: ltr;
+  }
+
+  .wmc-env__hint {
+    grid-column: 2 / -1;
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+    line-height: 1.5;
+  }
+
+  .wmc-env__hint.is-warn { color: var(--wmc-cinnabar); }
+
+  /* ------------------------------------------------------------------ 内存控制 */
+  .wmc-env__meterWrap {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 210px;
+  }
+
+  .wmc-env__meterTop {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: var(--wmc-font-mono);
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-env__meterTop b {
+    font-family: var(--wmc-font-serif);
+    font-size: var(--wmc-fs-sm);
+    color: var(--wmc-ink);
+  }
+
+  /* 自绘步进器：不使用任何系统原生控件 */
+  .wmc-env__stepper {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-sm);
+    background: var(--wmc-paper);
+    overflow: hidden;
+    box-shadow: var(--wmc-sh-inset);
+  }
+
+  .wmc-env__stepBtn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--wmc-font-serif);
+    font-size: 15px;
+    color: var(--wmc-ink-2);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: background-color var(--wmc-dur-fast) var(--wmc-ease), color var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-env__stepBtn:hover:not([disabled]) { background: rgba(212, 175, 55, 0.16); color: var(--wmc-gold-deep); }
+  .wmc-env__stepBtn[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+  .wmc-env__stepVal {
+    min-width: 66px;
+    padding: 0 6px;
+    text-align: center;
+    font-family: var(--wmc-font-mono);
+    font-size: var(--wmc-fs-sm);
+    color: var(--wmc-ink);
+    border-left: 1px solid var(--wmc-line);
+    border-right: 1px solid var(--wmc-line);
+    line-height: 28px;
+  }
+
+  /* ------------------------------------------------------------------ 底部动作 */
+  .wmc-env__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--wmc-paper-2);
+    border-top: 1px solid var(--wmc-gold-line);
+  }
+
+  .wmc-env__actionsMeta {
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+  }
+
+  /* ------------------------------------------------------------------ 窄窗口 */
+  @media (max-width: 860px) {
+    .wmc-env__row { grid-template-columns: 92px minmax(0, 1fr); }
+    .wmc-env__ctl { grid-column: 2 / -1; justify-content: flex-start; }
+    .wmc-env__meterWrap { min-width: 0; width: 100%; }
+  }
+}

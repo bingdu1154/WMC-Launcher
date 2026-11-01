@@ -1,0 +1,44 @@
+<!--
+  WMC · 下载中心 —— 可直接粘贴到你的 Electron 渲染页里
+  ---------------------------------------------------------------------------
+  用法（最少三行）：
+    1) 在你的页面里放进这段 DOM（外层已带 .wmc-scope，用于隔离设计令牌）；
+    2) 引入 4 个样式文件（tokens / primitives / download-center / runtime-panel）；
+    3) 在渲染脚本里：
+         import { createBridge } from './scripts/wmc-bridge.js';
+         import { mountDownloadCenter } from './scripts/wmc-download-center.js';
+         const bridge = createBridge();
+         await mountDownloadCenter(document.querySelector('[data-wmc-dc]'), { bridge });
+
+  说明：带 data-wmc-* 的属性是 JS 的挂载点，请勿删除；其余结构可自由调整。
+        卡片本体由 JS 生成，不在这里写死，方便接入真实数据。
+-->
+<div class="wmc-scope" data-wmc-panel="download-center">
+  <section class="wmc-dc" data-wmc-dc>
+
+    <!-- 左侧：分类（选中态＝金边卷轴 + 朱砂印章） -->
+    <aside class="wmc-dc__aside">
+      <div class="wmc-dc__asideTitle">下载分类</div>
+      <div class="wmc-dc__cats" data-wmc-dc-cats></div>
+    </aside>
+
+    <!-- 右侧：工具栏 + 卡片网格 -->
+    <div class="wmc-dc__main">
+      <div class="wmc-dc__toolbar">
+        <div class="wmc-dc__search">
+          <span class="wmc-dc__searchIcon" data-wmc-icon="search"></span>
+          <input type="search" data-wmc-dc-search placeholder="搜索模组 / 整合包 / 作者…" aria-label="搜索资源" />
+        </div>
+        <!-- 自定义下拉（不是 <select>）由 JS 注入到下面两个容器里 -->
+        <div data-wmc-dc-source></div>
+        <div data-wmc-dc-sort></div>
+        <span class="wmc-dc__meta" data-wmc-dc-meta></span>
+      </div>
+
+      <div class="wmc-dc__scroll" data-wmc-dc-scroll>
+        <div class="wmc-dc__grid" data-wmc-dc-grid></div>
+      </div>
+    </div>
+
+  </section>
+</div>

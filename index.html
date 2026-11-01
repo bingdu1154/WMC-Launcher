@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' data:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>WMC · 下载中心 / 运行环境（UI 预览）</title>
+
+  <!-- 交付的四个样式文件（顺序：令牌 → 通用组件 → 两个面板） -->
+  <link rel="stylesheet" href="styles/wmc-tokens.css" />
+  <link rel="stylesheet" href="styles/wmc-primitives.css" />
+  <link rel="stylesheet" href="styles/wmc-download-center.css" />
+  <link rel="stylesheet" href="styles/wmc-runtime-panel.css" />
+  <!-- 仅预览页需要，真实项目可不要 -->
+  <link rel="stylesheet" href="styles/preview.css" />
+</head>
+
+<body class="preview-body">
+  <div class="preview-shell">
+
+    <header class="preview-topbar">
+      <div class="preview-brand">
+        <span class="preview-brandSeal">凌</span>
+        <span>WMC 启动器 · 界面重构预览</span>
+      </div>
+      <div class="preview-tabs">
+        <button class="preview-tab is-active" type="button" data-preview-tab="download-center">下载中心</button>
+        <button class="preview-tab" type="button" data-preview-tab="runtime">运行环境</button>
+      </div>
+    </header>
+
+    <p class="preview-note">
+      本页把两个面板装进一个「假启动器」里，方便你直接看效果、量间距。
+      真实项目里只需搬走 <code>panels/*.html</code> 与 <code>styles/wmc-*.css</code>，
+      再调用 <code>mountDownloadCenter()</code> / <code>mountRuntimePanel()</code>；
+      没有 <code>window.wmc</code> 时面板会自动使用内置模拟数据（所以离线也能预览）。
+    </p>
+
+    <main class="preview-stage">
+
+      <!-- ================= 下载中心 ================= -->
+      <div class="preview-panelSlot" data-preview-slot="download-center">
+        <div class="wmc-scope" data-wmc-panel="download-center">
+          <section class="wmc-dc" data-wmc-dc>
+
+            <aside class="wmc-dc__aside">
+              <div class="wmc-dc__asideTitle">下载分类</div>
+              <div class="wmc-dc__cats" data-wmc-dc-cats></div>
+            </aside>
+
+            <div class="wmc-dc__main">
+              <div class="wmc-dc__toolbar">
+                <div class="wmc-dc__search">
+                  <span class="wmc-dc__searchIcon" data-wmc-icon="search"></span>
+                  <input type="search" data-wmc-dc-search
+                         placeholder="搜索模组 / 整合包 / 作者…" aria-label="搜索资源" />
+                </div>
+                <div data-wmc-dc-source></div>
+                <div data-wmc-dc-sort></div>
+                <span class="wmc-dc__meta" data-wmc-dc-meta></span>
+              </div>
+
+              <div class="wmc-dc__scroll" data-wmc-dc-scroll>
+                <div class="wmc-dc__grid" data-wmc-dc-grid></div>
+              </div>
+            </div>
+
+          </section>
+        </div>
+      </div>
+
+      <!-- ================= 运行环境 ================= -->
+      <div class="preview-panelSlot" data-preview-slot="runtime" hidden>
+        <div class="wmc-scope" data-wmc-panel="runtime">
+          <section class="wmc-env" data-wmc-env>
+
+            <div class="wmc-env__panel">
+              <header class="wmc-env__hd">
+                <div>
+                  <div class="wmc-env__title">运行环境</div>
+                  <div class="wmc-env__subtitle">Java 运行时 · 物理内存 · 下载源 · 游戏目录</div>
+                </div>
+                <div class="wmc-env__summary" data-wmc-env-summary></div>
+              </header>
+
+              <div class="wmc-env__body" data-wmc-env-body></div>
+
+              <footer class="wmc-env__actions">
+                <span class="wmc-env__actionsMeta" data-wmc-env-meta></span>
+                <span class="wmc-spacer"></span>
+                <button class="wmc-btn wmc-btn--ghost" type="button" data-wmc-env-reset>恢复推荐值</button>
+                <button class="wmc-btn wmc-btn--primary" type="button" data-wmc-env-apply>保存并应用</button>
+              </footer>
+            </div>
+
+          </section>
+        </div>
+      </div>
+
+    </main>
+
+    <p class="preview-foot" data-preview-source>数据来源：检测中…</p>
+  </div>
+
+  <script type="module" src="scripts/app.js"></script>
+</body>
+</html>

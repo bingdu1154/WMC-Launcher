@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WMC 首页 · 渲染校验（水墨青绿）</title>
+  <link rel="stylesheet" href="../styles/wmc-tokens.css" />
+  <link rel="stylesheet" href="../styles/wmc-primitives.css" />
+  <link rel="stylesheet" href="../styles/wmc-shell.css" />
+  <link rel="stylesheet" href="../styles/wmc-home.css" />
+  <link rel="stylesheet" href="../styles/wmc-download-center.css" />
+  <style>
+    html, body { margin: 0; padding: 0; }
+    #out { margin: 0; padding: 12px; font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; }
+    #stage { width: 1500px; height: 940px; overflow: hidden; position: relative; }
+    #probe { position: absolute; left: -9999px; top: 0; }
+  </style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="probe" class="wmc-scope"></div>
+<pre id="out">PENDING</pre>
+
+<script type="module">
+/**
+ * WMC 首页渲染校验台（大白板 + 六宫格 + 四列卡片 这一版）
+ * ---------------------------------------------------------------------------
+ * 核对：
+ *   · 顶部栏一行：两行页目标题 + 搜索 + 齿轮 + 窗口三键（没有独立状态栏）
+ *   · 主面板：白底微透光 + 水墨远山 + 墨黑「WMC」+ 朱砂印章按钮
+ *   · 状态栏：没有版本时显示「没有版本」（且全页无写死版本号）
+ *   · 六宫格：磨砂微光 6 格，含环境体检 / 存档速览
+ *   · 底部：左「为你推荐」多列卡片 / 右「水墨黄历」
+ *   · 品牌底线：界面上只有 WMC 与「冒险者」
+ */
+import { createBridge } from '../scripts/wmc-bridge.js';
+import { hydrateIcons } from '../scripts/wmc-dom.js';
+import { createShell } from '../scripts/wmc-shell.js';
+import { mountHome } from '../scripts/wmc-home.js';
+
+const checks = [];
+const errors = [];
+const check = (name, pass, detail) => checks.push({ name, pass: !!pass, detail: String(detail ?? '') });
+
+const origError = console.error;
+console.error = (...args) => { errors.push(args.map(String).join(' ')); origError(...args); };
+window.addEventListener('error', (e) => errors.push('window.onerror: ' + e.message));
+
+const css = (node, prop) => (node ? getComputedStyle(node).getPropertyValue(prop).trim() : '');
+const text = (node) => node?.textContent?.trim() || '';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(fn, timeout = 8000, step = 80) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try { if (fn()) return true; } catch { /* ignore */ }
+    await sleep(step);
+  }
+  return false;
+}
+function findStyleRule(selectorText, prop) {
+  const walk = (rules) => {
+    for (const rule of rules) {
+      if (rule.cssRules) {
+        const nested = walk(rule.cssRules);
+        if (nested !== null) return nested;
+      }
+      if (rule.selectorText && rule.selectorText.split(',').some((s) => s.trim() === selectorText)) {
+        if (!prop) return rule.style.cssText;
+        const value = rule.style.getPropertyValue(prop);
+        if (value) return value.trim();
+      }
+    }
+    return null;
+  };
+  for (const sheet of document.styleSheets) {
+    let rules;
+    try { rules = sheet.cssRules; } catch { continue; }
+    const found = walk(rules);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+const report = { checks, errors, summary: {} };
+
+try {
+  const appHtml = await fetch('../app.html').then((r) => r.text());
+  const doc = new DOMParser().parseFromString(appHtml, 'text/html');
+  const appRoot = doc.querySelector('[data-wmc-app]');
+  const homeTemplate = doc.querySelector('[data-wmc-template="home"]');
+  if (!appRoot || !homeTemplate) throw new Error('app.html 里缺少外壳或首页模板');
+
+  const stage = document.getElementById('stage');
+  stage.append(document.importNode(appRoot, true));
+  const holder = document.createElement('div');
+  holder.append(document.importNode(homeTemplate, true));
+  document.body.append(holder);
+
+  const root = stage.querySelector('[data-wmc-app]');
+  check('图标注入成功（搜索 / 齿轮 / 窗口按钮）',
+    hydrateIcons(root) >= 5, `${root.querySelectorAll('[data-wmc-icon] svg').length} 个 svg`);
+
+  const bridge = createBridge({ forceMock: true, onWarn: () => {} });
+  report.bridgeMode = bridge.mode;
+
+  const shell = createShell(root, { bridge });
+  shell.addPage('home', (host, api) => {
+    host.replaceChildren(document.querySelector('[data-wmc-template="home"]').content.cloneNode(true));
+    return mountHome(host, { bridge, shell: api });
+  });
+  await shell.navigate('home');
+
+  const homeReady = await waitFor(() => (
+    document.querySelectorAll('#stage .wmc-quick').length === 6
+    && document.querySelectorAll('#stage .wmc-home__recGrid .wmc-mod').length >= 4
+    && /幸运值/.test(text(document.querySelector('#stage [data-wmc-almanac-date]')))
+  ), 15000);
+  check('首页异步数据就绪（六宫格 6 / 推荐 ≥4 / 黄历已生成）', homeReady,
+    `六宫格 ${document.querySelectorAll('#stage .wmc-quick').length} · 推荐 ${document.querySelectorAll('#stage .wmc-home__recGrid .wmc-mod').length} · 黄历「${text(document.querySelector('#stage [data-wmc-almanac-date]'))}」`);
+
+  /* ==================================================== 侧边栏：四组 14 项 + 滚动条 */
+  const navScroll = document.querySelector('#stage .wmc-nav__scroll');
+  const navEl = document.querySelector('#stage .wmc-app__nav');
+  const navItems = Array.from(document.querySelectorAll('#stage .wmc-nav__item'));
+  const groupTitles = Array.from(document.querySelectorAll('#stage .wmc-nav__group')).map((n) => text(n));
+
+  check('菜单分组为「开始 / 游戏管理 / 资源中心 / 系统」四组',
+    groupTitles.join('/') === '开始/游戏管理/资源中心/系统', groupTitles.join(' / '));
+  check('菜单共 14 项', navItems.length === 14, `${navItems.length} 项`);
+  const navNames = navItems.map((n) => text(n.querySelector('.wmc-nav__label')));
+  check('14 项菜单名齐全（资源中心一组一个不少）',
+    ['首页', '游戏下载', '实例管理', '存档管理', '模组下载', '整合包下载', '资源包下载',
+      '光影下载', '地图下载', '数据包下载', '服务器插件', '账户中心', 'Java 与运行环境', '启动器设置']
+      .every((n) => navNames.includes(n)),
+    navNames.join(' / '));
+  const navBadges = Array.from(document.querySelectorAll('#stage .wmc-nav__badge')).map((n) => text(n));
+  check('英文角标齐全（MOD / PACK / RP / SHADER / MAP / DATA / PLUGIN / SAVES）',
+    ['MOD', 'PACK', 'RP', 'SHADER', 'MAP', 'DATA', 'PLUGIN', 'SAVES'].every((b) => navBadges.includes(b)),
+    navBadges.join(' / '));
+  check('每个菜单项都有图标', navItems.every((n) => !!n.querySelector('.wmc-nav__icon svg')),
+    `${document.querySelectorAll('#stage .wmc-nav__item .wmc-nav__icon svg').length} 个图标`);
+
+  const activeNav = document.querySelector('#stage .wmc-nav__item--active');
+  check('首页保持选中 + 白字加粗',
+    text(activeNav?.querySelector('.wmc-nav__label')) === '首页'
+      && /rgb\(255, 255, 255\)/.test(css(activeNav, 'color'))
+      && Number(css(activeNav, 'font-weight')) >= 600,
+    `${text(activeNav?.querySelector('.wmc-nav__label'))} · ${css(activeNav, 'color')} · ${css(activeNav, 'font-weight')}`);
+  check('悬浮高亮动效仍在（背景 + 过渡）',
+    /--wmc-nav-hover/.test(findStyleRule('.wmc-nav__item:hover', 'background') || '')
+      && /color/.test(css(navItems[0], 'transition-property')),
+    findStyleRule('.wmc-nav__item:hover', 'background'));
+
+  check('侧边栏由独立滚动容器负责滚动（导航自身不滚）',
+    css(navEl, 'overflow-y') === 'hidden' && !!navScroll,
+    `nav overflow-y=${css(navEl, 'overflow-y')}`);
+  check('滚动容器为自动纵向滚动 + 平滑滚动',
+    css(navScroll, 'overflow-y') === 'auto' && css(navScroll, 'scroll-behavior') === 'smooth',
+    `overflow-y=${css(navScroll, 'overflow-y')} · scroll-behavior=${css(navScroll, 'scroll-behavior')}`);
+  check('滚动条：6px 极细 + 青玉色滑块 + 无箭头按钮（不是 Windows 默认粗条）',
+    /6px/.test(findStyleRule('.wmc-nav__scroll::-webkit-scrollbar', 'width') || '')
+      && /rgba\(122, 178, 164/.test(findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-thumb', 'background') || '')
+      && (
+        /^0(px)?$/.test(findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-button', 'width') || 'x')
+        || /none/.test(findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-button', 'display') || '')
+      ),
+    `width=${findStyleRule('.wmc-nav__scroll::-webkit-scrollbar', 'width')}`
+      + ` · thumb=${findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-thumb', 'background')}`
+      + ` · 箭头按钮 width=${findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-button', 'width')}`
+      + ` display=${findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-button', 'display')}`);
+  check('滚动条轨道透明（不出现灰色轨道）',
+    /transparent/.test(findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-track', 'background') || ''),
+    findStyleRule('.wmc-nav__scroll::-webkit-scrollbar-track', 'background'));
+
+  // 把外壳压矮，模拟「窗口不够高」：菜单应能内部滚动，且品牌/账号卡不被挤走
+  root.style.height = '520px';
+  await sleep(120);
+  const canScroll = navScroll.scrollHeight > navScroll.clientHeight;
+  // 注意：CSS 里是 scroll-behavior: smooth，直接赋 scrollTop 会走动画（无头环境不推进动画帧），
+  // 所以这里显式用 instant 验证「滚动本身可用」，平滑滚动由上面的 CSS 断言负责。
+  navScroll.scrollTo({ top: 120, behavior: 'instant' });
+  const scrolled = await waitFor(() => navScroll.scrollTop > 0, 1500);
+  const navRect = navEl.getBoundingClientRect();
+  const brandRect = document.querySelector('#stage .wmc-nav__brand').getBoundingClientRect();
+  const userRect = document.querySelector('#stage .wmc-nav__user').getBoundingClientRect();
+  check('窗口变矮时菜单可内部滚动', canScroll && scrolled,
+    `scrollHeight=${navScroll.scrollHeight} clientHeight=${navScroll.clientHeight} scrollTop=${navScroll.scrollTop}`);
+  check('滚动时品牌固定在顶、账号卡固定在底（不被挤走）',
+    brandRect.top >= navRect.top - 1 && userRect.bottom <= navRect.bottom + 1
+      && userRect.height > 60,
+    `brandTop=${Math.round(brandRect.top - navRect.top)} · 账号卡高 ${Math.round(userRect.height)} · 距底 ${Math.round(navRect.bottom - userRect.bottom)}`);
+  navScroll.scrollTop = 0;
+  root.style.height = '';
+
+  /* ==================================================== 品牌底线 */
+  check('Logo 印章为「W」', text(document.querySelector('#stage .wmc-nav__seal')) === 'W',
+    text(document.querySelector('#stage .wmc-nav__seal')));
+  check('品牌名与副标都是 WMC',
+    /WMC/.test(text(document.querySelector('#stage .wmc-nav__brandName')))
+      && /WMC/.test(text(document.querySelector('#stage .wmc-nav__brandPinyin'))),
+    `${text(document.querySelector('#stage .wmc-nav__brandName'))} / ${text(document.querySelector('#stage .wmc-nav__brandPinyin'))}`);
+  check('大标题是 WMC（不是旧中文名）', text(document.querySelector('#stage .wmc-hero__title')) === 'WMC',
+    text(document.querySelector('#stage .wmc-hero__title')));
+  check('账号卡保留 + 名字为「冒险者」',
+    /冒险者/.test(text(document.querySelector('#stage [data-wmc-user-name]')))
+      && /离线登录/.test(text(document.querySelector('#stage [data-wmc-user-state]'))),
+    `${text(document.querySelector('#stage [data-wmc-user-name]'))} · ${text(document.querySelector('#stage [data-wmc-user-state]'))}`);
+  check('页面上没有旧品牌字样',
+    // 只扫应用根节点的可见文本；document.body.textContent 会把校验台自己的脚本源码算进来
+    !/LPCL/i.test(root.textContent) && !/创想/.test(root.textContent),
+    root.textContent.replace(/\s+/g, ' ').slice(0, 60));
+
+  /* ==================================================== 顶部栏（一行装下） */
+  const bar = document.querySelector('#stage .wmc-topbar');
+  check('顶部栏是单行（标题 + 搜索 + 齿轮 + 窗口键）',
+    !!bar?.querySelector('[data-wmc-title-cn]') && !!bar?.querySelector('[data-wmc-search]')
+      && !!bar?.querySelector('[data-wmc-gear]') && bar.querySelectorAll('[data-wmc-win]').length === 3,
+    `窗口键 ${bar?.querySelectorAll('[data-wmc-win]').length} 个`);
+  check('独立状态栏已撤回', !document.querySelector('#stage .wmc-statusbar'), '无 .wmc-statusbar');
+  check('页目标题两行（青玉英文 + 墨黑宋体）',
+    /rgb\(58, 110, 98\)/.test(css(bar?.querySelector('[data-wmc-title-en]'), 'color'))
+      && parseFloat(css(bar?.querySelector('[data-wmc-title-cn]'), 'font-size')) >= 20,
+    `${text(bar?.querySelector('[data-wmc-title-en]'))} / ${text(bar?.querySelector('[data-wmc-title-cn]'))}`);
+
+  /* ==================================================== 主面板（大白板） */
+  const hero = document.querySelector('#stage .wmc-hero');
+  check('主面板：白底微透光 + 水墨远山',
+    /rgba\(255, 255, 255, 0\.94\)/.test(css(hero, 'background-image'))
+      && /blur/.test(css(hero, 'backdrop-filter'))
+      && /data:image\/svg/.test(css(document.querySelector('#stage .wmc-hero__deco'), 'background-image')),
+    `${css(hero, 'backdrop-filter')} · 远山 ${css(document.querySelector('#stage .wmc-hero__deco'), 'background-image').slice(0, 22)}`);
+  check('大标题：墨黑粗宋体',
+    Number(css(document.querySelector('#stage .wmc-hero__title'), 'font-weight')) >= 700
+      && /31, 42, 46/.test(css(document.querySelector('#stage .wmc-hero__title'), 'color')),
+    `${css(document.querySelector('#stage .wmc-hero__title'), 'font-size')} · ${css(document.querySelector('#stage .wmc-hero__title'), 'color')}`);
+  check('右侧方印也是「W」', text(document.querySelector('#stage .wmc-hero__stamp')) === 'W',
+    text(document.querySelector('#stage .wmc-hero__stamp')));
+
+  const sealBtn = document.querySelector('#stage [data-wmc-launch]');
+  check('启动按钮：朱砂印章质感',
+    /rgb\(192, 72, 81\)/.test(css(sealBtn, 'background-image')) && /inset/.test(css(sealBtn, 'box-shadow')),
+    css(sealBtn, 'background-image').slice(0, 50));
+  check('次按钮「下载新版本」在位',
+    /下载新版本/.test(text(document.querySelector('#stage [data-wmc-hero-secondary]'))),
+    text(document.querySelector('#stage [data-wmc-hero-secondary]')));
+
+  /* ==================================================== 逻辑底线：没有版本 */
+  const chips = Array.from(document.querySelectorAll('#stage .wmc-hero__chip'));
+  const chipText = chips.map((n) => text(n)).join(' | ');
+  check('【逻辑底线】状态栏显示「没有版本」',
+    chips.some((n) => text(n) === '没有版本' && n.classList.contains('wmc-hero__chip--warn')),
+    chipText);
+  check('状态栏另有内存 / Java 两项', chips.length === 3 && /内存/.test(chipText) && /Java/.test(chipText),
+    chipText);
+  check('【逻辑底线】整页正文不出现写死的版本号',
+    !/\b\d+\.\d+(\.\d+)?\b/.test(text(document.querySelector('#stage .wmc-hero'))
+      .replace(/Java\s?[\d.]*/g, '')
+      .replace(/\d+\s*MB/g, '')),
+    text(document.querySelector('#stage .wmc-hero__status')));
+
+  /* ==================================================== 六宫格 */
+  const quicks = Array.from(document.querySelectorAll('#stage .wmc-quick'));
+  check('六宫格：6 张卡片', quicks.length === 6, `${quicks.length} 张`);
+  const cols = css(document.querySelector('#stage .wmc-quicks'), 'grid-template-columns').split(/\s+/).filter(Boolean).length;
+  check('六宫格：6 列排布', cols === 6, `${cols} 列`);
+  check('快捷卡片：磨砂微光（backdrop blur）',
+    /blur/.test(css(quicks[0], 'backdrop-filter')), css(quicks[0], 'backdrop-filter'));
+  check('快捷卡片：青玉图标 + 名称 + 说明',
+    !!quicks[0]?.querySelector('.wmc-quick__icon svg')
+      && !!quicks[0]?.querySelector('.wmc-quick__name')
+      && !!quicks[0]?.querySelector('.wmc-quick__desc'),
+    text(quicks[0]?.querySelector('.wmc-quick__name')));
+  const names = quicks.map((q) => text(q.querySelector('.wmc-quick__name')));
+  check('六宫格含「环境体检 / 存档速览」两个特色功能',
+    names.includes('环境体检') && names.includes('存档速览'), names.join(' / '));
+  check('特色入口带「特色」小签',
+    document.querySelectorAll('#stage .wmc-quick__tag').length === 2,
+    `${document.querySelectorAll('#stage .wmc-quick__tag').length} 个`);
+  check('快捷卡片：悬浮上浮 + 过渡',
+    /translateY\(-3px\)/.test(findStyleRule('.wmc-quick:hover', 'transform') || '')
+      && /transform/.test(css(quicks[0], 'transition-property')),
+    findStyleRule('.wmc-quick:hover', 'transform'));
+
+  /* ==================================================== 底部：推荐 + 黄历 */
+  const bottomCols = css(document.querySelector('#stage .wmc-home__bottom'), 'grid-template-columns').split(/\s+/).filter(Boolean);
+  check('底部两列（左推荐 / 右黄历）',
+    bottomCols.length === 2 && Math.abs(parseFloat(bottomCols[1]) - 300) < 1,
+    bottomCols.join(' / '));
+
+  const recCards = Array.from(document.querySelectorAll('#stage .wmc-home__recGrid .wmc-mod'));
+  const recImgs = Array.from(document.querySelectorAll('#stage .wmc-home__recGrid .wmc-mod__img'));
+  const loaded = recImgs.filter((n) => n.naturalWidth > 0).length;
+  check('为你推荐：多列卡片 + 封面已加载', recCards.length >= 4 && loaded / Math.max(recImgs.length, 1) >= 0.75,
+    `${recCards.length} 张 · 封面 ${loaded}/${recImgs.length}`);
+  check('推荐卡片：悬浮上浮',
+    /translateY\(-3px\)/.test(findStyleRule('.wmc-mod:hover', 'transform') || ''),
+    findStyleRule('.wmc-mod:hover', 'transform'));
+
+  const almanac = document.querySelector('#stage .wmc-almanac');
+  check('黄历：信笺竖格 + 左朱砂细边',
+    /repeating-linear-gradient/.test(css(almanac, 'background-image'))
+      && /192, 72, 81/.test(css(almanac, 'border-left-color')),
+    css(almanac, 'background-image').slice(0, 32));
+  check('黄历：折扇纯 CSS + 朱砂小印',
+    /repeating-conic-gradient/.test(css(document.querySelector('#stage .wmc-almanac__fanRibs'), 'background-image'))
+      && text(document.querySelector('#stage .wmc-almanac__seal')) === '历',
+    text(document.querySelector('#stage .wmc-almanac__seal')));
+  const almRows = Array.from(document.querySelectorAll('#stage .wmc-almanac__row'));
+  check('黄历：今日宜「挖矿建房子」/ 忌「打末影龙」',
+    /挖矿建房子/.test(text(almRows[0]?.querySelector('.wmc-almanac__val')))
+      && /打末影龙/.test(text(almRows[1]?.querySelector('.wmc-almanac__val'))),
+    `${text(almRows[0]?.querySelector('.wmc-almanac__val'))} | ${text(almRows[1]?.querySelector('.wmc-almanac__val'))}`);
+
+  /* ==================================================== 交互：特色浮层 */
+  quicks[0].click();
+  const healthOpen = await waitFor(() => document.querySelectorAll('.wmc-health__row').length === 3, 3000);
+  check('点「环境体检」→ 信笺体检报告（3 项）', healthOpen,
+    Array.from(document.querySelectorAll('.wmc-health__key')).map((n) => text(n)).join(' / '));
+  check('体检：状态点为青玉色（令牌生效）',
+    /rgb\(78, 140, 126\)/.test(css(document.querySelector('.wmc-health__dot'), 'background-color')),
+    css(document.querySelector('.wmc-health__dot'), 'background-color'));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  check('浮层：按 Esc 可关闭', await waitFor(() => !document.querySelector('.wmc-sheet'), 2000), '已关闭');
+
+  quicks[1].click();
+  const worldsOpen = await waitFor(() => document.querySelectorAll('.wmc-world').length === 3, 4000);
+  check('点「存档速览」→ 信笺浮层列出最近 3 个世界', worldsOpen,
+    Array.from(document.querySelectorAll('.wmc-world__name')).map((n) => text(n)).join(' / '));
+  document.querySelector('.wmc-sheet').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  check('浮层：点遮罩可关闭', await waitFor(() => !document.querySelector('.wmc-sheet'), 2000), '已关闭');
+
+  /* ==================================================== 交互：没有版本时的启动逻辑 */
+  document.querySelector('#stage [data-wmc-launch]').click();
+  const jumped = await waitFor(() => text(document.querySelector('#stage [data-wmc-title-cn]')) === '游戏下载', 4000);
+  check('【逻辑底线】没有版本时点「启动游戏」→ 引导去游戏下载页', jumped,
+    `${text(document.querySelector('#stage [data-wmc-title-en]'))} / ${text(document.querySelector('#stage [data-wmc-title-cn]'))}`);
+  check('未实现页面显示占位卡（不是死链）',
+    /任务/.test(text(document.querySelector('#stage .wmc-placeholder__title'))),
+    text(document.querySelector('#stage .wmc-placeholder__title')));
+
+  await shell.navigate('home');
+  const reMounted = await waitFor(() => document.querySelectorAll('#stage .wmc-quick').length === 6, 8000);
+  check('返回首页后骨架可重新克隆', reMounted,
+    `${document.querySelectorAll('#stage .wmc-quick').length} 张快捷卡`);
+
+  /* ==================================================== 路由：14 项逐个点一遍 */
+  const expectedTitle = {
+    首页: ['DASHBOARD', '首页'],
+    游戏下载: ['GAME', '游戏下载'],
+    实例管理: ['INSTANCES', '实例管理'],
+    存档管理: ['SAVES', '存档管理'],
+    模组下载: ['MODS', '模组下载'],
+    整合包下载: ['MODPACKS', '整合包下载'],
+    资源包下载: ['TEXTURES', '资源包下载'],
+    光影下载: ['SHADERS', '光影下载'],
+    地图下载: ['MAPS', '地图下载'],
+    数据包下载: ['DATAPACKS', '数据包下载'],
+    服务器插件: ['PLUGINS', '服务器插件'],
+    账户中心: ['ACCOUNT', '账户中心'],
+    'Java 与运行环境': ['RUNTIME', 'Java 与运行环境'],
+    启动器设置: ['SETTINGS', '启动器设置'],
+  };
+  const routeFailures = [];
+  for (const label of Object.keys(expectedTitle)) {
+    const button = Array.from(document.querySelectorAll('#stage .wmc-nav__item'))
+      .find((n) => text(n.querySelector('.wmc-nav__label')) === label);
+    if (!button) { routeFailures.push(`${label}: 找不到菜单项`); continue; }
+    button.click();
+    const [en, cn] = expectedTitle[label];
+    const ok = await waitFor(() => text(document.querySelector('#stage [data-wmc-title-cn]')) === cn
+      && text(document.querySelector('#stage [data-wmc-title-en]')) === en, 3000);
+    if (!ok) {
+      routeFailures.push(`${label}: 标题为「${text(document.querySelector('#stage [data-wmc-title-en]'))}/${text(document.querySelector('#stage [data-wmc-title-cn]'))}」`);
+    }
+    // 选中态应只有一个，且就是当前项
+    const actives = Array.from(document.querySelectorAll('#stage .wmc-nav__item--active'));
+    if (actives.length !== 1 || actives[0] !== button) routeFailures.push(`${label}: 选中态异常（${actives.length} 个）`);
+    // 首页之外都应有占位卡
+    if (label !== '首页' && !document.querySelector('#stage .wmc-placeholder')) {
+      routeFailures.push(`${label}: 没有占位卡`);
+    }
+  }
+  check('14 项菜单点击后都能切换主区域标题（无死链）',
+    routeFailures.length === 0, routeFailures.length ? routeFailures.join('；') : '14/14 通过');
+
+  await shell.navigate('home');
+  shell.destroy();
+} catch (error) {
+  errors.push('校验台异常: ' + (error?.stack || error));
+  check('校验流程完整执行', false, String(error?.message || error));
+}
+
+const passed = checks.filter((c) => c.pass).length;
+const failed = checks.filter((c) => !c.pass);
+report.summary = { total: checks.length, passed, failed: failed.length };
+document.getElementById('out').textContent =
+  'WMC_RENDER_REPORT_BEGIN\n' + JSON.stringify(report, null, 1) + '\nWMC_RENDER_REPORT_END';
+document.title = failed.length === 0 ? 'RENDER_OK' : `RENDER_FAIL(${failed.length})`;
+</script>
+</body>
+</html>

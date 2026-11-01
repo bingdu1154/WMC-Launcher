@@ -1,0 +1,81 @@
+<!--
+  WMC 启动器 · 首页（Dashboard）骨架 —— 水墨青绿
+  ---------------------------------------------------------------------------
+  用法：把整段放进 <template data-wmc-template="home"> … </template>，
+  然后在外壳里这样注册首页（来回切页都会克隆一份干净骨架）：
+
+    const tpl = document.querySelector('[data-wmc-template="home"]');
+    shell.addPage('home', (host, api) => {
+      host.replaceChildren(tpl.content.cloneNode(true));
+      return mountHome(host, { bridge, shell: api });
+    });
+
+  结构：微透光主面板（大白板）→ 六宫格快捷入口 → 底部（左为你推荐 / 右水墨黄历）
+  逻辑底线：配置里的版本为空时，状态栏显示「没有版本」，不要写死任何版本号。
+  挂载点（data-wmc-*）不要删。
+-->
+<div class="wmc-page__inner wmc-home" data-wmc-home>
+
+  <!-- 微透光主面板 -->
+  <section class="wmc-hero">
+    <div class="wmc-hero__deco" aria-hidden="true"></div>
+
+    <div class="wmc-hero__body">
+      <div class="wmc-hero__eyebrow">WMC LAUNCHER</div>
+      <h1 class="wmc-hero__title">WMC</h1>
+      <p class="wmc-hero__sub" data-wmc-hero-sub>正在读取运行环境…</p>
+
+      <div class="wmc-hero__actions">
+        <button class="wmc-sealBtn" type="button" data-wmc-launch>
+          <span class="wmc-sealBtn__icon" data-wmc-launch-icon aria-hidden="true"></span>启动游戏
+        </button>
+        <button class="wmc-ghostBtn" type="button" data-wmc-hero-secondary>下载新版本</button>
+      </div>
+
+      <!-- 状态栏：版本 / 内存 / Java（没有版本时显示「没有版本」） -->
+      <div class="wmc-hero__status" data-wmc-hero-status></div>
+    </div>
+
+    <!-- 右侧方印（可换成插画 / logo） -->
+    <div class="wmc-hero__aside" aria-hidden="true">
+      <span class="wmc-hero__stamp">W</span>
+      <span class="wmc-hero__stampText">WMC LAUNCHER</span>
+    </div>
+  </section>
+
+  <!-- 六宫格快捷入口（磨砂微光方块，由 JS 填充：含环境体检 / 存档速览两个特色功能） -->
+  <section class="wmc-quicks" data-wmc-quicks aria-label="快捷入口"></section>
+
+  <!-- 底部：左「为你推荐」四列卡片流 / 右「水墨黄历 · 今日运势」 -->
+  <div class="wmc-home__bottom">
+
+    <section class="wmc-panel" data-wmc-recs>
+      <header class="wmc-panel__hd">
+        <span class="wmc-panel__title">为你推荐</span>
+        <span class="wmc-panel__en">RECOMMENDED</span>
+        <button class="wmc-panel__link" type="button" data-wmc-recs-more>更多模组 →</button>
+      </header>
+      <div class="wmc-panel__bd">
+        <div class="wmc-dc__grid wmc-home__recGrid"></div>
+      </div>
+    </section>
+
+    <aside class="wmc-almanac" data-wmc-almanac>
+      <span class="wmc-almanac__seal" aria-hidden="true">历</span>
+
+      <div class="wmc-almanac__hd">
+        <span class="wmc-almanac__fan" aria-hidden="true">
+          <span class="wmc-almanac__fanRibs"></span>
+        </span>
+        <div class="wmc-almanac__titleWrap">
+          <div class="wmc-almanac__title" data-wmc-almanac-title>水墨黄历</div>
+          <div class="wmc-almanac__date" data-wmc-almanac-date>—</div>
+        </div>
+      </div>
+
+      <div class="wmc-almanac__rows" data-wmc-almanac-rows></div>
+      <div class="wmc-almanac__note" data-wmc-almanac-note></div>
+    </aside>
+
+  </div>
+</div>

@@ -1,0 +1,146 @@
+/* =============================================================================
+   WMC · 全局设计令牌 —— 水墨青绿
+   -----------------------------------------------------------------------------
+   设计定位：《千里江山图》式的典雅水墨青绿，刻意脱离「常规红金风」。
+     · 页面底色    浅青灰   #F4F7F6
+     · 主色（黛蓝）  #2B3A42 / #3E4E59
+     · 青玉色       #4E8C7E   ← 选中态、正常状态、细线
+     · 朱砂红       #C04851   ← 全站仅用于「最核心的操作」「印章」，用量极少
+     · 金色         #D4AF37   ← 降级为可选点缀，本页不使用
+     · 字体         宋体优先：SimSun → Songti SC → Noto Serif SC → serif
+
+   模块化约定：本文件只声明变量，全部挂在 .wmc-scope 上；选择器一律 .wmc- 前缀。
+   ============================================================================= */
+
+@layer wmc.tokens {
+
+  .wmc-scope {
+    /* ================================================================ 字体 */
+    --wmc-font-serif: "SimSun", "Songti SC", "Noto Serif SC", "Source Han Serif SC",
+                       "STSong", "Times New Roman", serif;
+    --wmc-font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, "SimSun", monospace;
+    /* 英文小标题（MODS / DASHBOARD）用无衬线更精神，仍以宋体兜底 */
+    --wmc-font-en: "Noto Sans SC", "Segoe UI", "SimSun", sans-serif;
+
+    --wmc-fs-xs: 12px;
+    --wmc-fs-sm: 13px;
+    --wmc-fs-md: 14px;
+    --wmc-fs-lg: 16px;
+    --wmc-fs-xl: 20px;
+    --wmc-fs-2xl: 26px;
+    --wmc-fs-3xl: 34px;
+
+    --wmc-fw-normal: 400;
+    --wmc-fw-medium: 500;
+    --wmc-fw-bold: 700;
+
+    --wmc-lh-tight: 1.25;
+    --wmc-lh-normal: 1.6;
+
+    /* ================================================================ 底色 */
+    --wmc-bg: #F4F7F6;          /* 页面主背景：浅青灰宣纸 */
+    --wmc-paper: #FBFDFC;       /* 卡片/面板：近白微透光 */
+    --wmc-paper-2: #EDF2F1;     /* 次级分区 */
+    --wmc-paper-3: #E3EAE9;     /* 表头 / 轨道 */
+    --wmc-paper-hover: #FFFFFF;
+
+    /* ================================================================ 主色 */
+    --wmc-deep: #2B3A42;        /* 黛蓝（导航底 / 主色） */
+    --wmc-deep-2: #22303A;      /* 黛蓝渐深 */
+    --wmc-deep-3: #1A262E;      /* 黛蓝最深（按压） */
+    --wmc-teal: #3E4E59;        /* 青灰蓝（次色 / 次级文字） */
+
+    /* 青玉色：选中态短竖线、正常状态、强调细线 */
+    --wmc-jade: #4E8C7E;
+    --wmc-jade-deep: #3A6E62;
+    --wmc-jade-soft: rgba(78, 140, 126, 0.12);
+    --wmc-jade-line: rgba(78, 140, 126, 0.42);
+
+    /* 朱砂红：本页仅用于「启动游戏」印章按钮与印章点缀 */
+    --wmc-cinnabar: #C04851;
+    --wmc-cinnabar-dark: #A33A43;
+    --wmc-cinnabar-soft: rgba(192, 72, 81, 0.10);
+    --wmc-cinnabar-line: rgba(192, 72, 81, 0.38);
+
+    /* 墨色文字 */
+    --wmc-ink: #1F2A2E;         /* 墨黑：标题 */
+    --wmc-ink-2: #3E4E59;       /* 正文 */
+    --wmc-ink-3: #7A8A8F;       /* 说明 / 标签（青灰） */
+    --wmc-ink-4: #A9B5B8;       /* 占位符 */
+
+    /* 金（保留给后续页面按需使用，本页不出现） */
+    --wmc-gold: #D4AF37;
+    --wmc-gold-soft: #E7D6A2;
+    --wmc-gold-weak: rgba(212, 175, 55, 0.28);
+    --wmc-gold-line: rgba(212, 175, 55, 0.45);
+    --wmc-gold-glow: rgba(212, 175, 55, 0.38);
+    --wmc-gold-deep: #A8862A;
+
+    /* 中性线（替代生硬边框：一律极淡青灰） */
+    --wmc-line: rgba(43, 58, 66, 0.10);
+    --wmc-line-2: rgba(43, 58, 66, 0.16);
+    --wmc-hairline: rgba(43, 58, 66, 0.08);
+    --wmc-scrim: rgba(20, 30, 34, 0.50);
+
+    /* 黛蓝（信息态）：与青绿体系同族，供徽标 / 信息提示使用 */
+    --wmc-indigo: #2F4858;
+    --wmc-indigo-soft: rgba(47, 72, 88, 0.82);
+    --wmc-indigo-line: rgba(47, 72, 88, 0.35);
+
+    /* 青竹绿：与青玉同族，用于「正常 / 在线」状态 */
+    --wmc-jade-green: #3F7A55;
+
+    /* ================================================================ 左导航（深黛蓝，无任何暗纹） */
+    --wmc-nav-bg-from: #2B3A42;
+    --wmc-nav-bg-to: #22303A;
+    --wmc-nav-w: 226px;
+    --wmc-nav-text: rgba(233, 240, 238, 0.66);
+    --wmc-nav-text-active: #FFFFFF;
+    --wmc-nav-group: rgba(200, 216, 212, 0.40);
+    --wmc-nav-hover: rgba(233, 240, 238, 0.06);
+    --wmc-nav-card: rgba(78, 140, 126, 0.16);        /* 账号卡：深青半透明 */
+    --wmc-nav-card-line: rgba(122, 178, 164, 0.34);  /* 账号卡：极细青边 */
+
+    /* 水墨远山（顶部主面板的极淡水墨装饰，替代原祥云红金纹样） */
+    --wmc-ink-mountain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='260' viewBox='0 0 1200 260'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M0 214 L120 132 L186 178 L268 96 L352 176 L436 122 L520 196 L604 140 L700 200 L790 128 L880 186 L968 118 L1060 192 L1140 146 L1200 198' stroke='rgba(43,58,66,0.16)' stroke-width='1.6'/%3E%3Cpath d='M0 244 L150 186 L250 226 L360 172 L470 232 L580 184 L690 238 L800 180 L910 236 L1020 178 L1130 234 L1200 200' stroke='rgba(43,58,66,0.09)' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E");
+
+    /* ================================================================ 圆角（微圆角，不生硬） */
+    --wmc-r-xs: 3px;
+    --wmc-r-sm: 6px;
+    --wmc-r-md: 10px;
+    --wmc-r-lg: 14px;
+    --wmc-r-pill: 999px;
+
+    /* ================================================================ 阴影（青灰调，柔和） */
+    --wmc-sh-1: 0 1px 2px rgba(43, 58, 66, 0.05);
+    --wmc-sh-2: 0 4px 14px rgba(43, 58, 66, 0.07);
+    --wmc-sh-3: 0 10px 28px rgba(43, 58, 66, 0.10);
+    --wmc-sh-lift: 0 14px 32px rgba(43, 58, 66, 0.14);
+    --wmc-sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    --wmc-sh-nav: 2px 0 16px rgba(20, 30, 34, 0.14);
+
+    /* ================================================================ 动效 */
+    --wmc-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --wmc-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --wmc-dur-fast: 140ms;
+    --wmc-dur: 220ms;
+    --wmc-dur-slow: 340ms;
+
+    /* ================================================================ 尺寸 */
+    --wmc-sidebar-w: 190px;
+    --wmc-card-min: 258px;
+    --wmc-cover-ratio: 16 / 9;
+    --wmc-row-h: 40px;
+    --wmc-topbar-h: 56px;
+
+    /* ================================================================ 纹理 */
+    /* 宣纸微噪点（极弱） */
+    --wmc-paper-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    /* 信笺竖格（黄历 / 信笺浮层用） */
+    --wmc-letter-lines: repeating-linear-gradient(90deg,
+      rgba(43, 58, 66, 0.06) 0 1px, transparent 1px 30px);
+    /* 祥云纹样已按新规范移除（导航不再有任何暗纹） */
+    --wmc-cloud-pattern: none;
+    --wmc-nav-pattern: none;
+  }
+}

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WMC 游戏下载 · 渲染校验</title>
+  <link rel="stylesheet" href="../styles/wmc-tokens.css" />
+  <link rel="stylesheet" href="../styles/wmc-primitives.css" />
+  <link rel="stylesheet" href="../styles/wmc-shell.css" />
+  <link rel="stylesheet" href="../styles/wmc-home.css" />
+  <link rel="stylesheet" href="../styles/wmc-download-center.css" />
+  <link rel="stylesheet" href="../styles/wmc-game-download.css" />
+  <link rel="stylesheet" href="../styles/wmc-dragdrop.css" />
+  <style>
+    html, body { margin: 0; padding: 0; }
+    #out { margin: 0; padding: 12px; font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; }
+    #stage { width: 1500px; height: 940px; overflow: hidden; position: relative; }
+  </style>
+</head>
+<body>
+<div id="stage"></div>
+<pre id="out">PENDING</pre>
+
+<script type="module">
+/**
+ * 游戏下载页 + 全局拖拽安装 渲染校验台
+ * ---------------------------------------------------------------------------
+ * 数据源：tools/fixtures/manifest.sample.json —— 真实抓取自 BMCLAPI 的清单切片
+ *        （校验台把它包装成主进程返回的形状，产品代码本身不做任何假数据兜底）。
+ * 覆盖：大卡片 / 筛选栏 / 极简列表 / 骨架屏 / 红字错误 / 内存搜索 /
+ *       分类与源切换 / 安装确认弹窗 / 拖拽遮罩与识别安装全流程。
+ */
+import { createShell } from '../scripts/wmc-shell.js';
+import { hydrateIcons } from '../scripts/wmc-dom.js';
+import { mountGlobalDrop } from '../scripts/wmc-dragdrop.js';
+import { mountGameDownload } from '../scripts/wmc-game-download.js';
+import { mountHome } from '../scripts/wmc-home.js';
+
+const checks = [];
+const errors = [];
+const check = (name, pass, detail) => checks.push({ name, pass: !!pass, detail: String(detail ?? '') });
+console.error = (...a) => errors.push(a.map(String).join(' '));
+window.addEventListener('error', (e) => errors.push('window.onerror: ' + e.message));
+
+const css = (node, prop) => (node ? getComputedStyle(node).getPropertyValue(prop).trim() : '');
+const text = (node) => node?.textContent?.trim() || '';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(fn, timeout = 6000, step = 60) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try { if (fn()) return true; } catch { /* ignore */ }
+    await sleep(step);
+  }
+  return false;
+}
+
+const report = { checks, errors, summary: {} };
+
+/* ---------------------------------------------------------------- 真实清单 → 主进程返回形状 */
+const fixture = await fetch('../tools/fixtures/manifest.sample.json').then((r) => r.json());
+const FOOLS = ['15w14a', '1.rv-pre1', '3d shareware v1.34', '20w14infinite',
+  '22w13oneblockatatime', '23w13a_or_b', '24w14potato', '25w14craftmine'];
+const classify = (v) => {
+  const id = String(v.id).toLowerCase();
+  if (FOOLS.includes(id) || /(oneblock|craftmine|potato|shareware|infinite|_or_b|rv-pre)/.test(id)) return 'fools';
+  if (v.type === 'release') return 'release';
+  if (v.type === 'snapshot') return 'snapshot';
+  if (v.type === 'old_beta' || v.type === 'old_alpha') return 'old';
+  return 'other';
+};
+const all = fixture.versions.map((v) => ({ ...v, category: classify(v) }));
+
+/** 测试替身：记录每次调用，按真实形状返回 */
+function makeStubBridge() {
+  const calls = { versionsList: [], versionsDetail: [], configPatch: [], inspect: [], install: [] };
+  const api = {
+    mode: 'ipc',
+    provider: {},
+    calls,
+    versionsList: async (params = {}) => {
+      calls.versionsList.push({ ...params });
+      await sleep(120);                                   // 让骨架屏有机会出现
+      const category = params.category || 'release';
+      const items = all.filter((v) => v.category === category)
+        .sort((a, b) => String(b.releaseTime).localeCompare(String(a.releaseTime)));
+      return {
+        source: params.source || 'official',
+        sourceLabel: params.source === 'bmclapi' ? 'BMCLAPI 镜像' : 'Mojang 官方源',
+        fromCache: false, fallback: false,
+        latest: {
+          release: all.find((v) => v.id === fixture.latest.release) || null,
+          snapshot: all.find((v) => v.id === fixture.latest.snapshot) || null,
+        },
+        categories: [], total: all.length,
+        counts: all.reduce((acc, v) => { acc[v.category] = (acc[v.category] || 0) + 1; return acc; }, {}),
+        items,
+      };
+    },
+    versionsLatest: async () => ({ version: all.find((v) => v.id === fixture.latest.release) }),
+    versionsDetail: async ({ id }) => {
+      calls.versionsDetail.push({ id });
+      return {
+        id, category: classify(all.find((v) => v.id === id) || {}),
+        releaseTime: '2026-09-15T11:23:02+00:00',
+        mainClass: 'net.minecraft.client.main.Main', assets: '34', assetsIndex: '34',
+        javaVersion: { majorVersion: 25, component: 'java-runtime-delta' },
+        libraries: 114,
+        client: { size: 26843546, sha1: '5df1795e16eea19d75b923d66ecca9ce183353c5', url: 'https://example.invalid/client.jar' },
+      };
+    },
+    versionsSources: async () => [{ value: 'official', label: 'Mojang 官方源' }, { value: 'bmclapi', label: 'BMCLAPI 镜像' }],
+    configPatch: async (patch) => { calls.configPatch.push(patch); return { ...patch }; },
+    configGet: async () => ({ lastVersionId: '' }),
+    systemInfo: async () => ({ launcherVersion: '1.0.0', totalMemMb: 16384, freeMemMb: 9000 }),
+    javaList: async () => [{ name: 'Java 21', vendor: 'Adoptium', ok: true }],
+    account: async () => ({ id: 'a', name: '冒险者', type: 'offline', typeLabel: '离线登录', avatarGlyph: 'W' }),
+    openPath: async () => true,
+    onProgress: () => () => {},
+    windowControls: { minimize: async () => 'ok', maximize: async () => 'ok', close: async () => 'ok' },
+    quickEntries: async () => [],
+    recentWorlds: async () => [],
+    fortune: async () => ({ date: '11 月 1 日', level: '吉', luck: 70, good: ['挖矿建房子'], bad: ['打末影龙'], note: '稳一点' }),
+    // 拖拽：路径由 preload 提供（这里用替身模拟 Electron）
+    filePathOf: (file) => (file?.name === '测试包.zip' ? 'C:\\\\packs\\\\测试包.zip' : ''),
+    // 注意：页面调用的是 bridge.modpackInspect(filePath)（真实桥接会包成 { filePath } 再走 IPC）
+    modpackInspect: async (filePath) => {
+      calls.inspect.push({ filePath });
+      return {
+        ok: true, kind: 'curseforge', label: 'CurseForge 整合包', evidence: 'manifest.json',
+        meta: { name: '山河整合包', version: '1.0.0', mcVersion: '1.21.1', loader: 'forge-52.0.1', loaderKind: 'forge', fileCount: 12 },
+        file: { path: filePath, name: '测试包.zip', ext: '.zip', sizeBytes: 52428800, entryCount: 240, zip64: false },
+        hasOverrides: true, topLevel: ['manifest.json', 'overrides'],
+      };
+    },
+    modpackInstall: async (params) => {
+      calls.install.push({ ...params });
+      return {
+        isolation: '山河整合包', targetDir: 'C:\\\\game\\\\versions\\\\山河整合包',
+        extracted: 238, skipped: [{ name: '../x.txt', reason: '不安全路径（zip-slip）' }],
+        marker: { packKind: 'curseforge' },
+      };
+    },
+    modpackPick: async () => null,
+  };
+  return api;
+}
+
+try {
+  /* ---------------------------------------------------- 装载外壳与页面 */
+  const appHtml = await fetch('../app.html').then((r) => r.text());
+  const doc = new DOMParser().parseFromString(appHtml, 'text/html');
+  const stage = document.getElementById('stage');
+  stage.append(document.importNode(doc.querySelector('[data-wmc-app]'), true));
+  const templates = document.createElement('div');
+  for (const name of ['home', 'game']) {
+    const tpl = doc.querySelector(`[data-wmc-template="${name}"]`);
+    if (tpl) templates.append(document.importNode(tpl, true));
+  }
+  document.body.append(templates);
+  const root = stage.querySelector('[data-wmc-app]');
+  hydrateIcons(root);
+
+  const bridge = makeStubBridge();
+  const shell = createShell(root, { bridge });
+  shell.addPage('home', (host, api) => {
+    host.replaceChildren(document.querySelector('[data-wmc-template="home"]').content.cloneNode(true));
+    return mountHome(host, { bridge, shell: api });
+  });
+  let gamePanel = null;
+  shell.addPage('game', (host, api) => {
+    host.replaceChildren(document.querySelector('[data-wmc-template="game"]').content.cloneNode(true));
+    gamePanel = mountGameDownload(host, { bridge, shell: api });
+    return gamePanel;
+  });
+  await shell.navigate('game');
+
+  /* ---------------------------------------------------- 骨架屏（请求进行中） */
+  check('加载时先出现骨架屏（8 行）',
+    document.querySelectorAll('#stage .wmc-dl__skeleton').length === 8,
+    `${document.querySelectorAll('#stage .wmc-dl__skeleton').length} 行骨架`);
+
+  const loaded = await waitFor(() => document.querySelectorAll('#stage .wmc-dl__row').length > 5, 8000);
+  check('版本列表渲染成功（真实清单切片）', loaded,
+    `${document.querySelectorAll('#stage .wmc-dl__row').length} 行`);
+  check('骨架屏在数据到达后消失', document.querySelectorAll('#stage .wmc-dl__skeleton').length === 0,
+    `${document.querySelectorAll('#stage .wmc-dl__skeleton').length} 行残留`);
+
+  /* ---------------------------------------------------- 顶部最新正式版大卡片 */
+  const latestText = text(document.querySelector('#stage [data-wmc-dl-latest-version]'));
+  check('大卡片：最新正式版 + 真实版本号',
+    /^最新正式版：\d/.test(latestText),
+    latestText);
+  const metaText = text(document.querySelector('#stage [data-wmc-dl-latest-meta]'));
+  check('大卡片：右侧元信息（发布时间 / Java / 依赖库 / 来源）',
+    /发布时间/.test(metaText) && /Java/.test(metaText) && /依赖库/.test(metaText) && /官方源|BMCLAPI/.test(metaText),
+    metaText);
+  const installAll = document.querySelector('#stage [data-wmc-dl-install-all]');
+  check('大卡片：朱砂红「一键安装最新版」大按钮',
+    /一键安装最新版/.test(text(installAll))
+      && /rgb\(192, 72, 81\)/.test(css(installAll, 'background-image'))
+      && parseFloat(css(installAll, 'min-width')) >= 200,
+    `${css(installAll, 'min-width')} · ${css(installAll, 'background-image').slice(0, 44)}`);
+  check('大卡片：带极淡水墨山峦背景',
+    /data:image\/svg/.test(css(document.querySelector('#stage .wmc-dl__deco'), 'background-image')),
+    css(document.querySelector('#stage .wmc-dl__deco'), 'background-image').slice(0, 30));
+
+  /* ---------------------------------------------------- 筛选栏 */
+  check('筛选栏：搜索框 + 两个自定义下拉 + 刷新 + 计数',
+    !!document.querySelector('#stage [data-wmc-dl-search]')
+      && document.querySelectorAll('#stage [data-wmc-dl-category] .wmc-select__trigger').length === 1
+      && document.querySelectorAll('#stage [data-wmc-dl-source] .wmc-select__trigger').length === 1
+      && !!document.querySelector('#stage [data-wmc-dl-refresh]'),
+    text(document.querySelector('#stage [data-wmc-dl-count]')));
+  check('筛选栏：没有原生 select（全自定义）',
+    document.querySelectorAll('#stage .wmc-dl select').length === 0,
+    `原生 select ${document.querySelectorAll('#stage .wmc-dl select').length} 个`);
+  const categoryTrigger = document.querySelector('#stage [data-wmc-dl-category] .wmc-select__trigger');
+  check('分类下拉默认选中「正式版」', /正式版/.test(text(categoryTrigger)), text(categoryTrigger));
+
+  /* ---------------------------------------------------- 极简列表行 */
+  const rows = Array.from(document.querySelectorAll('#stage .wmc-dl__row'));
+  check('列表行：大字版本号 + 类型标签 + 发布时间 + 安装按钮',
+    !!rows[0]?.querySelector('.wmc-dl__rowVer') && !!rows[0]?.querySelector('.wmc-dl__tag')
+      && !!rows[0]?.querySelector('.wmc-dl__rowTime') && !!rows[0]?.querySelector('.wmc-dl__rowAct'),
+    `${text(rows[0]?.querySelector('.wmc-dl__rowVer'))} / ${text(rows[0]?.querySelector('.wmc-dl__tag'))} / ${text(rows[0]?.querySelector('.wmc-dl__rowTime'))}`);
+  check('类型标签：正式版用青玉色',
+    rows[0]?.querySelector('.wmc-dl__tag')?.classList.contains('wmc-dl__tag--release')
+      && /58, 110, 98/.test(css(rows[0].querySelector('.wmc-dl__tag'), 'color')),
+    css(rows[0]?.querySelector('.wmc-dl__tag'), 'color'));
+  check('安装按钮：朱砂红',
+    /rgb\(192, 72, 81\)/.test(css(rows[0]?.querySelector('.wmc-dl__rowAct'), 'background-color')),
+    css(rows[0]?.querySelector('.wmc-dl__rowAct'), 'background-color'));
+  check('整行悬浮：极浅青色底（CSSOM 规则存在）',
+    /rgba\(78, 140, 126, 0\.0/.test(findCssRule('.wmc-dl__row:hover', 'background') || ''),
+    findCssRule('.wmc-dl__row:hover', 'background'));
+
+  /* ---------------------------------------------------- 内存搜索：不触发新请求 */
+  const callsBefore = bridge.calls.versionsList.length;
+  const search = document.querySelector('#stage [data-wmc-dl-search]');
+  search.value = '26.3';
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(420);
+  const afterSearch = document.querySelectorAll('#stage .wmc-dl__row').length;
+  check('搜索：前端内存过滤（不发新请求）',
+    afterSearch >= 1 && afterSearch < rows.length && bridge.calls.versionsList.length === callsBefore,
+    `命中 ${afterSearch} 行 · 请求数 ${bridge.calls.versionsList.length}（之前 ${callsBefore}）`);
+  check('搜索结果都包含关键词',
+    Array.from(document.querySelectorAll('#stage .wmc-dl__rowVer')).every((n) => text(n).includes('26.3')),
+    Array.from(document.querySelectorAll('#stage .wmc-dl__rowVer')).map((n) => text(n)).join(', '));
+  search.value = '';
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(320);
+
+  /* ---------------------------------------------------- 分类切换：愚人节版 */
+  categoryTrigger.click();
+  await sleep(240);
+  const foolsOption = Array.from(document.querySelectorAll('.wmc-select__panel.is-open .wmc-select__opt'))
+    .find((n) => /愚人节版/.test(text(n)));
+  check('分类下拉含四个分类（正式版 / 预览版 / 远古版 / 愚人节版）',
+    !!foolsOption && document.querySelectorAll('.wmc-select__panel.is-open .wmc-select__opt').length >= 4,
+    Array.from(document.querySelectorAll('.wmc-select__panel.is-open .wmc-select__opt')).map((n) => text(n)).join(' / '));
+  foolsOption.click();
+  const foolsLoaded = await waitFor(() => {
+    const tags = Array.from(document.querySelectorAll('#stage .wmc-dl__row .wmc-dl__tag'));
+    return tags.length > 0 && tags.every((t) => t.classList.contains('wmc-dl__tag--fools'));
+  }, 6000);
+  check('切到愚人节版：全部行都是愚人节标签',
+    foolsLoaded, `${document.querySelectorAll('#stage .wmc-dl__row').length} 行 · 请求参数 ${JSON.stringify(bridge.calls.versionsList.at(-1))}`);
+  check('愚人节标签用朱砂色',
+    /163, 58, 67/.test(css(document.querySelector('#stage .wmc-dl__tag--fools'), 'color')),
+    css(document.querySelector('#stage .wmc-dl__tag--fools'), 'color'));
+
+  /* ---------------------------------------------------- 下载源切换 */
+  const sourceTrigger = document.querySelector('#stage [data-wmc-dl-source] .wmc-select__trigger');
+  sourceTrigger.click();
+  await sleep(240);
+  const bmclOption = Array.from(document.querySelectorAll('.wmc-select__panel.is-open .wmc-select__opt'))
+    .find((n) => /BMCLAPI/.test(text(n)));
+  bmclOption.click();
+  await waitFor(() => bridge.calls.versionsList.at(-1)?.source === 'bmclapi', 4000);
+  check('下载源可切换到 BMCLAPI（请求带上 source）',
+    bridge.calls.versionsList.at(-1)?.source === 'bmclapi',
+    JSON.stringify(bridge.calls.versionsList.at(-1)));
+  // 等重新加载完成再断言计数（期间列表是骨架屏）
+  const countSettled = await waitFor(() => /BMCLAPI/.test(text(document.querySelector('#stage [data-wmc-dl-count]'))), 6000);
+  check('计数行显示来源', countSettled,
+    text(document.querySelector('#stage [data-wmc-dl-count]')));
+  // 切回正式版，便于后面的安装弹窗测试
+  sourceTrigger.click(); await sleep(200);
+  Array.from(document.querySelectorAll('.wmc-select__panel.is-open .wmc-select__opt'))
+    .find((n) => /官方源/.test(text(n)))?.click();
+  await waitFor(() => bridge.calls.versionsList.at(-1)?.source === 'official', 4000);
+  categoryTrigger.click(); await sleep(200);
+  Array.from(document.querySelectorAll('.wmc-select__panel.is-open .wmc-select__opt'))
+    .find((n) => /^正式版/.test(text(n)))?.click();
+  await waitFor(() => document.querySelectorAll('#stage .wmc-dl__row').length > 5, 6000);
+
+  /* ---------------------------------------------------- 刷新（force） */
+  document.querySelector('#stage [data-wmc-dl-refresh]').click();
+  await waitFor(() => bridge.calls.versionsList.at(-1)?.force === true, 4000);
+  check('刷新按钮：强制重新拉取（force=true）',
+    bridge.calls.versionsList.at(-1)?.force === true,
+    JSON.stringify(bridge.calls.versionsList.at(-1)));
+
+  /* ---------------------------------------------------- 安装：真实详情 → 设为目标版本 */
+  // 刷新期间列表会变回骨架屏，等行回来再点
+  await waitFor(() => document.querySelectorAll('#stage .wmc-dl__row').length > 5, 8000);
+  document.querySelector('#stage .wmc-dl__row .wmc-dl__rowAct').click();
+  const dialogOpen = await waitFor(() => !!document.querySelector('.wmc-dialog.is-open'), 4000);
+  const dialogText = text(document.querySelector('.wmc-dialog__panel'));
+  check('点「安装」→ 弹出真实版本详情（Java 25 / 依赖库 114 / 主类）',
+    dialogOpen && /需要 Java/.test(dialogText) && /114/.test(dialogText) && /net\.minecraft\.client\.main\.Main/.test(dialogText),
+    dialogText.replace(/\s+/g, ' ').slice(0, 90));
+  document.querySelector('.wmc-dialog .wmc-primaryBtn').click();
+  const marked = await waitFor(() => bridge.calls.configPatch.length > 0, 4000);
+  check('详情弹窗「设为目标版本」→ 写入配置 lastVersionId',
+    marked && /^\d/.test(String(bridge.calls.configPatch.at(-1)?.lastVersionId || '')),
+    JSON.stringify(bridge.calls.configPatch.at(-1)));
+  await waitFor(() => !document.querySelector('.wmc-dialog'), 2000);
+
+  /* ---------------------------------------------------- 全局拖拽：遮罩 → 识别 → 安装 */
+  const dropzone = mountGlobalDrop({ bridge, onInstalled: () => {} });
+  const file = new File([new Uint8Array([0x50, 0x4b])], '测试包.zip', { type: 'application/zip' });
+  const dt = { types: ['Files'], files: [file], dropEffect: '', items: [] };
+  const makeEvent = (type) => {
+    const evt = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(evt, 'dataTransfer', { value: dt });
+    return evt;
+  };
+
+  window.dispatchEvent(makeEvent('dragenter'));
+  await sleep(150);
+  const overlay = document.querySelector('.wmc-drop');
+  check('拖入文件：出现全屏水墨遮罩',
+    overlay?.classList.contains('is-active')
+      && /data:image\/svg/.test(css(overlay.querySelector('.wmc-drop__mask'), 'background-image')),
+    `active=${overlay?.classList.contains('is-active')}`);
+  check('遮罩文案：「松开鼠标以解析并安装整合包」',
+    text(overlay?.querySelector('.wmc-drop__title')) === '松开鼠标以解析并安装整合包',
+    text(overlay?.querySelector('.wmc-drop__title')));
+  check('遮罩：青玉虚线拖拽框',
+    /dashed/.test(css(overlay?.querySelector('.wmc-drop__panel'), 'border-top-style')),
+    css(overlay?.querySelector('.wmc-drop__panel'), 'border-top-style'));
+
+  window.dispatchEvent(makeEvent('dragover'));
+  window.dispatchEvent(makeEvent('drop'));
+  const inspectCalled = await waitFor(() => bridge.calls.inspect.length > 0, 4000);
+  check('松手 → 主进程识别（带上真实磁盘路径）',
+    inspectCalled && /测试包\.zip$/.test(bridge.calls.inspect.at(-1)?.filePath || ''),
+    JSON.stringify(bridge.calls.inspect.at(-1)));
+  check('遮罩在松手后收起', !document.querySelector('.wmc-drop')?.classList.contains('is-active'),
+    '已收起');
+
+  const inspectDialog = await waitFor(() => /识别到整合包/.test(text(document.querySelector('.wmc-dialog__title'))), 4000);
+  const inspectText = text(document.querySelector('.wmc-dialog__panel'));
+  check('识别结果弹窗：包类型 / 特征文件 / 游戏版本 / 加载器',
+    inspectDialog && /CurseForge 整合包/.test(inspectText) && /manifest\.json/.test(inspectText)
+      && /1\.21\.1/.test(inspectText) && /forge/.test(inspectText),
+    inspectText.replace(/\s+/g, ' ').slice(0, 100));
+
+  document.querySelector('.wmc-dialog .wmc-primaryBtn').click();
+  const installed = await waitFor(() => bridge.calls.install.length > 0, 4000);
+  check('确认安装 → 主进程解压（filePath 正确）',
+    installed && /测试包\.zip$/.test(bridge.calls.install.at(-1)?.filePath || ''),
+    JSON.stringify(bridge.calls.install.at(-1)));
+  const doneDialog = await waitFor(() => /安装完成/.test(text(document.querySelector('.wmc-dialog__title'))), 4000);
+  check('安装结果弹窗：隔离文件夹 / 位置 / 解压数量 / 跳过明细',
+    doneDialog && /山河整合包/.test(text(document.querySelector('.wmc-dialog__panel')))
+      && /238/.test(text(document.querySelector('.wmc-dialog__panel')))
+      && /zip-slip/.test(text(document.querySelector('.wmc-dialog__panel'))),
+    text(document.querySelector('.wmc-dialog__panel')).replace(/\s+/g, ' ').slice(0, 100));
+  dropzone.destroy();
+  await waitFor(() => !document.querySelector('.wmc-dialog'), 2000);
+
+  /* ---------------------------------------------------- 错误态：主进程报错 → 红字 */
+  const failing = { ...bridge, versionsList: async () => { throw new Error('版本清单获取失败 —— 官方源: HTTP 503；BMCLAPI 镜像: HTTP 503'); } };
+  const failHost = document.createElement('div');
+  // 真实应用里页面永远在 .wmc-scope 内（设计令牌只声明在那一层），校验台保持一致
+  failHost.className = 'wmc-scope';
+  document.body.append(failHost);
+  failHost.innerHTML = doc.querySelector('[data-wmc-template="game"]').innerHTML;
+  await mountGameDownload(failHost, { bridge: failing, shell });
+  const errorShown = await waitFor(() => !!failHost.querySelector('.wmc-dl__error'), 4000);
+  check('接口失败：显示红字错误 + 可读原因',
+    errorShown && /503/.test(text(failHost.querySelector('.wmc-dl__error')))
+      && /163, 58, 67|192, 72, 81/.test(css(failHost.querySelector('.wmc-dl__error'), 'color')),
+    `${text(failHost.querySelector('.wmc-dl__error')).replace(/\s+/g, ' ').slice(0, 60)} · ${css(failHost.querySelector('.wmc-dl__error'), 'color')}`);
+
+  shell.destroy();
+} catch (error) {
+  errors.push('校验台异常: ' + (error?.stack || error));
+  check('校验流程完整执行', false, String(error?.message || error));
+}
+
+function findCssRule(selectorText, prop) {
+  const walk = (rules) => {
+    for (const rule of rules) {
+      if (rule.cssRules) { const nested = walk(rule.cssRules); if (nested !== null) return nested; }
+      if (rule.selectorText && rule.selectorText.split(',').some((s) => s.trim() === selectorText)) {
+        if (!prop) return rule.style.cssText;
+        const value = rule.style.getPropertyValue(prop);
+        if (value) return value.trim();
+      }
+    }
+    return null;
+  };
+  for (const sheet of document.styleSheets) {
+    let rules; try { rules = sheet.cssRules; } catch { continue; }
+    const found = walk(rules); if (found !== null) return found;
+  }
+  return null;
+}
+
+const passed = checks.filter((c) => c.pass).length;
+const failed = checks.filter((c) => !c.pass);
+report.summary = { total: checks.length, passed, failed: failed.length };
+document.getElementById('out').textContent =
+  'WMC_RENDER_REPORT_BEGIN\n' + JSON.stringify(report, null, 1) + '\nWMC_RENDER_REPORT_END';
+document.title = failed.length === 0 ? 'RENDER_OK' : `RENDER_FAIL(${failed.length})`;
+</script>
+</body>
+</html>

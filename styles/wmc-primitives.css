@@ -1,0 +1,507 @@
+/* =============================================================================
+   WMC —— 通用组件（按钮 / 自定义下拉 / 徽标 / 状态 / 骨架屏 / Toast / 卡片）
+   -----------------------------------------------------------------------------
+   所有选择器都在 @layer wmc.components 内，且一律以 .wmc-scope 打底，
+   因此不会与启动器其它页面的样式互相覆盖。
+   ============================================================================= */
+
+@layer wmc.components {
+
+  /* ------------------------------------------------------------------ 基础 */
+  .wmc-scope,
+  .wmc-scope *,
+  .wmc-scope *::before,
+  .wmc-scope *::after {
+    box-sizing: border-box;
+  }
+
+  .wmc-scope {
+    font-family: var(--wmc-font-serif);
+    font-size: var(--wmc-fs-md);
+    line-height: var(--wmc-lh-normal);
+    color: var(--wmc-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 面板作用域内只重写滚动条外观，不动文档其余部分 */
+  .wmc-scope ::-webkit-scrollbar { width: 10px; height: 10px; }
+  .wmc-scope ::-webkit-scrollbar-track { background: transparent; }
+  .wmc-scope ::-webkit-scrollbar-thumb {
+    background: var(--wmc-gold-weak);
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: var(--wmc-r-pill);
+  }
+  .wmc-scope ::-webkit-scrollbar-thumb:hover { background-color: var(--wmc-gold-line); }
+
+  /* 统一焦点样式：金色细环，键盘可达性 */
+  .wmc-scope :focus-visible {
+    outline: 2px solid var(--wmc-gold);
+    outline-offset: 2px;
+    border-radius: var(--wmc-r-sm);
+  }
+
+  /* ------------------------------------------------------------------ 卡片 */
+  .wmc-card {
+    background-color: var(--wmc-paper);
+    background-image: var(--wmc-paper-texture);
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-md);
+    box-shadow: var(--wmc-sh-2), var(--wmc-sh-inset);
+    overflow: hidden;
+  }
+
+  .wmc-card__hd {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: linear-gradient(180deg, var(--wmc-paper-2), var(--wmc-paper));
+    border-bottom: 1px solid var(--wmc-line);
+  }
+
+  .wmc-card__title {
+    font-size: var(--wmc-fs-lg);
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.06em;
+    color: var(--wmc-ink);
+  }
+
+  .wmc-card__hint {
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-card__bd { padding: 16px 18px; }
+
+  /* ------------------------------------------------------------------ 按钮 */
+  .wmc-btn {
+    --_bg: var(--wmc-paper);
+    --_fg: var(--wmc-ink);
+    --_bd: var(--wmc-line-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 16px;
+    font-family: inherit;
+    font-size: var(--wmc-fs-sm);
+    font-weight: var(--wmc-fw-medium);
+    letter-spacing: 0.04em;
+    color: var(--_fg);
+    background: var(--_bg);
+    border: 1px solid var(--_bd);
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color var(--wmc-dur-fast) var(--wmc-ease),
+                border-color var(--wmc-dur-fast) var(--wmc-ease),
+                box-shadow var(--wmc-dur) var(--wmc-ease),
+                transform var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-btn:hover { transform: translateY(-1px); box-shadow: var(--wmc-sh-2); }
+  .wmc-btn:active { transform: translateY(0); box-shadow: none; }
+
+  .wmc-btn[disabled],
+  .wmc-btn.is-busy {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* 主操作：朱砂红，悬停加深并浮现金边 */
+  .wmc-btn--primary {
+    --_bg: var(--wmc-cinnabar);
+    --_fg: #FFF7EF;
+    --_bd: var(--wmc-cinnabar);
+  }
+  .wmc-btn--primary:hover:not([disabled]) {
+    --_bg: var(--wmc-cinnabar-dark);
+    border-color: var(--wmc-gold);
+    box-shadow: 0 0 0 2px var(--wmc-gold-glow), var(--wmc-sh-2);
+  }
+
+  /* 金色描边按钮：次要操作 */
+  .wmc-btn--gold {
+    --_bg: transparent;
+    --_fg: var(--wmc-gold-deep);
+    --_bd: var(--wmc-gold-line);
+  }
+  .wmc-btn--gold:hover:not([disabled]) {
+    --_bg: rgba(212, 175, 55, 0.10);
+    --_bd: var(--wmc-gold);
+  }
+
+  /* 无边框文字按钮 */
+  .wmc-btn--ghost {
+    --_bg: transparent;
+    --_fg: var(--wmc-ink-2);
+    --_bd: transparent;
+  }
+  .wmc-btn--ghost:hover:not([disabled]) {
+    --_bg: rgba(31, 27, 22, 0.05);
+    box-shadow: none;
+  }
+
+  .wmc-btn--sm { padding: 4px 10px; font-size: var(--wmc-fs-xs); }
+
+  .wmc-btn--icon {
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .wmc-btn__ic { display: inline-flex; width: 14px; height: 14px; }
+  .wmc-btn__ic svg { width: 100%; height: 100%; }
+
+  /* ------------------------------------------------------------------ 自定义下拉 */
+  /* 说明：绝不使用 <select>。触发器 + 浮层，全键盘可达。 */
+  .wmc-select {
+    position: relative;
+    display: inline-flex;
+    min-width: 150px;
+    font-family: inherit;
+    font-size: var(--wmc-fs-sm);
+  }
+
+  .wmc-select__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 12px;
+    color: var(--wmc-ink);
+    background: var(--wmc-paper);
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-sm);
+    box-shadow: var(--wmc-sh-inset);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--wmc-dur-fast) var(--wmc-ease),
+                box-shadow var(--wmc-dur) var(--wmc-ease),
+                background-color var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-select__trigger:hover { border-color: var(--wmc-gold); background: var(--wmc-paper-hover); }
+
+  .wmc-select.is-open .wmc-select__trigger,
+  .wmc-select__trigger[aria-expanded="true"] {
+    border-color: var(--wmc-gold);
+    box-shadow: 0 0 0 2px var(--wmc-gold-glow), var(--wmc-sh-inset);
+  }
+
+  .wmc-select.is-disabled .wmc-select__trigger {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .wmc-select__value {
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .wmc-select__value.is-placeholder { color: var(--wmc-ink-4); }
+
+  .wmc-select__caret {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-right: 1.5px solid var(--wmc-gold-deep);
+    border-bottom: 1.5px solid var(--wmc-gold-deep);
+    transform: rotate(45deg) translateY(-2px);
+    transition: transform var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-select.is-open .wmc-select__caret { transform: rotate(-135deg) translateY(-2px); }
+
+  /* 浮层：微圆角 + 极细金边 + 平滑展开（高度/透明度/位移三段式） */
+  .wmc-select__panel {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 100%;
+    max-height: 288px;
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--wmc-paper);
+    background-image: var(--wmc-paper-texture);
+    border: 1px solid var(--wmc-gold-line);
+    border-radius: var(--wmc-r-sm);
+    box-shadow: var(--wmc-sh-3);
+    transform-origin: top center;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+    pointer-events: none;
+    transition: opacity var(--wmc-dur) var(--wmc-ease-out),
+                transform var(--wmc-dur) var(--wmc-ease-out);
+  }
+
+  .wmc-select__panel.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  /* 向上弹出（空间不足时由 JS 加上） */
+  .wmc-select.is-dropup .wmc-select__panel {
+    top: auto;
+    bottom: calc(100% + 6px);
+    transform-origin: bottom center;
+  }
+
+  .wmc-select__group {
+    padding: 6px 10px 4px;
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-3);
+    letter-spacing: 0.08em;
+  }
+
+  .wmc-select__opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--wmc-r-xs);
+    color: var(--wmc-ink-2);
+    cursor: pointer;
+    transition: background-color var(--wmc-dur-fast) var(--wmc-ease), color var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-select__opt:hover,
+  .wmc-select__opt.is-active {
+    background: rgba(212, 175, 55, 0.14);
+    color: var(--wmc-ink);
+  }
+
+  .wmc-select__opt.is-selected {
+    color: var(--wmc-cinnabar);
+    font-weight: var(--wmc-fw-medium);
+  }
+
+  .wmc-select__opt.is-selected::after {
+    content: "✓";
+    margin-left: auto;
+    color: var(--wmc-gold-deep);
+    font-size: 12px;
+  }
+
+  .wmc-select__optDesc {
+    margin-left: auto;
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-4);
+  }
+
+  /* ------------------------------------------------------------------ 徽标 */
+  .wmc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: var(--wmc-fs-xs);
+    letter-spacing: 0.04em;
+    color: #FFF7EF;
+    background: var(--wmc-indigo-soft);
+    border-radius: var(--wmc-r-xs);
+    backdrop-filter: blur(2px);
+  }
+
+  .wmc-badge--cinnabar { background: rgba(193, 54, 46, 0.86); }
+  .wmc-badge--indigo { background: var(--wmc-indigo-soft); }
+  .wmc-badge--gold {
+    color: var(--wmc-gold-deep);
+    background: rgba(212, 175, 55, 0.16);
+    border: 1px solid var(--wmc-gold-line);
+  }
+  .wmc-badge--jade { background: rgba(63, 122, 85, 0.86); }
+
+  .wmc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: var(--wmc-fs-xs);
+    color: var(--wmc-ink-2);
+    background: var(--wmc-paper-3);
+    border: 1px solid var(--wmc-line);
+    border-radius: var(--wmc-r-pill);
+  }
+
+  /* ------------------------------------------------------------------ 状态 */
+  .wmc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: var(--wmc-fs-sm);
+  }
+
+  .wmc-status__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--wmc-ink-4);
+    box-shadow: 0 0 0 3px rgba(31, 27, 22, 0.05);
+    flex: 0 0 auto;
+  }
+
+  .wmc-status--ok .wmc-status__dot { background: var(--wmc-jade); box-shadow: 0 0 0 3px var(--wmc-jade-soft); }
+  .wmc-status--ok .wmc-status__text { color: var(--wmc-jade); font-weight: var(--wmc-fw-medium); }
+
+  .wmc-status--gold .wmc-status__dot { background: var(--wmc-gold); box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18); }
+  .wmc-status--gold .wmc-status__text { color: var(--wmc-gold-deep); font-weight: var(--wmc-fw-medium); }
+
+  .wmc-status--warn .wmc-status__dot { background: var(--wmc-cinnabar); box-shadow: 0 0 0 3px var(--wmc-cinnabar-soft); }
+  .wmc-status--warn .wmc-status__text { color: var(--wmc-cinnabar); font-weight: var(--wmc-fw-medium); }
+
+  .wmc-status__text { color: var(--wmc-ink-2); }
+
+  /* ------------------------------------------------------------------ 内存条 */
+  .wmc-meter {
+    position: relative;
+    height: 8px;
+    background: var(--wmc-paper-3);
+    border: 1px solid var(--wmc-line);
+    border-radius: var(--wmc-r-pill);
+    overflow: hidden;
+  }
+
+  .wmc-meter__fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: linear-gradient(90deg, var(--wmc-gold-soft), var(--wmc-gold));
+    border-radius: var(--wmc-r-pill);
+    transition: width var(--wmc-dur-slow) var(--wmc-ease-out), background-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-meter--warn .wmc-meter__fill { background: linear-gradient(90deg, #D98079, var(--wmc-cinnabar)); }
+  .wmc-meter--ok .wmc-meter__fill { background: linear-gradient(90deg, #8FBF9E, var(--wmc-jade)); }
+
+  /* ------------------------------------------------------------------ 骨架屏 */
+  .wmc-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--wmc-paper-2), var(--wmc-paper-3));
+    border-radius: var(--wmc-r-xs);
+  }
+
+  .wmc-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.62) 50%,
+      transparent 80%);
+    transform: translateX(-100%);
+    animation: wmc-shimmer 1.35s var(--wmc-ease) infinite;
+  }
+
+  .wmc-skeleton--cover { width: 100%; aspect-ratio: var(--wmc-cover-ratio); border-radius: 0; }
+  .wmc-skeleton--title { height: 16px; width: 68%; margin-bottom: 8px; }
+  .wmc-skeleton--line { height: 11px; width: 100%; margin-bottom: 6px; }
+  .wmc-skeleton--line.short { width: 52%; }
+
+  @keyframes wmc-shimmer {
+    0% { transform: translateX(-100%); }
+    60%, 100% { transform: translateX(100%); }
+  }
+
+  /* ------------------------------------------------------------------ 加载点 */
+  .wmc-dots { display: inline-flex; gap: 4px; align-items: center; }
+  .wmc-dots i {
+    width: 5px; height: 5px;
+    background: var(--wmc-gold-deep);
+    border-radius: 50%;
+    animation: wmc-bounce 1s var(--wmc-ease) infinite;
+  }
+  .wmc-dots i:nth-child(2) { animation-delay: 0.14s; }
+  .wmc-dots i:nth-child(3) { animation-delay: 0.28s; }
+
+  @keyframes wmc-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+    40% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* ------------------------------------------------------------------ 空态 */
+  .wmc-empty {
+    grid-column: 1 / -1;
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--wmc-ink-3);
+  }
+  .wmc-empty__icon { font-size: 30px; opacity: 0.5; }
+  .wmc-empty__text { margin-top: 8px; font-size: var(--wmc-fs-sm); }
+
+  /* ------------------------------------------------------------------ Toast */
+  .wmc-toasts {
+    position: fixed;
+    z-index: 999;
+    right: 20px;
+    bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+
+  .wmc-toast {
+    min-width: 240px;
+    max-width: 360px;
+    padding: 11px 14px;
+    background: var(--wmc-paper);
+    background-image: var(--wmc-paper-texture);
+    border: 1px solid var(--wmc-gold-line);
+    border-left: 3px solid var(--wmc-gold);
+    border-radius: var(--wmc-r-sm);
+    box-shadow: var(--wmc-sh-3);
+    pointer-events: auto;
+    animation: wmc-toast-in var(--wmc-dur-slow) var(--wmc-ease-out);
+  }
+
+  .wmc-toast.is-out { animation: wmc-toast-out var(--wmc-dur) var(--wmc-ease) forwards; }
+  .wmc-toast--ok { border-left-color: var(--wmc-jade); }
+  .wmc-toast--err { border-left-color: var(--wmc-cinnabar); }
+
+  .wmc-toast__title { font-weight: var(--wmc-fw-bold); font-size: var(--wmc-fs-sm); }
+  .wmc-toast__body { margin-top: 2px; font-size: var(--wmc-fs-xs); color: var(--wmc-ink-3); }
+
+  @keyframes wmc-toast-in {
+    from { opacity: 0; transform: translateX(16px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes wmc-toast-out {
+    to { opacity: 0; transform: translateX(16px); }
+  }
+
+  /* ------------------------------------------------------------------ 分隔与工具 */
+  .wmc-divider { height: 1px; background: var(--wmc-line); border: 0; margin: 12px 0; }
+  .wmc-spacer { flex: 1 1 auto; }
+  .wmc-muted { color: var(--wmc-ink-3); }
+  .wmc-mono { font-family: var(--wmc-font-mono); font-size: var(--wmc-fs-xs); }
+  .wmc-sr-only {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0);
+    white-space: nowrap; border: 0;
+  }
+
+  /* ------------------------------------------------------------------ 动效降级 */
+  @media (prefers-reduced-motion: reduce) {
+    .wmc-scope *,
+    .wmc-scope *::before,
+    .wmc-scope *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}

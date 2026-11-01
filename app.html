@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WMC · 首页</title>
+  <!-- 交付的样式（顺序：令牌 → 通用组件 → 外壳 → 首页 → 复用下载中心的卡片/下拉） -->
+  <link rel="stylesheet" href="styles/wmc-tokens.css" />
+  <link rel="stylesheet" href="styles/wmc-primitives.css" />
+  <link rel="stylesheet" href="styles/wmc-shell.css" />
+  <link rel="stylesheet" href="styles/wmc-home.css" />
+  <link rel="stylesheet" href="styles/wmc-download-center.css" />
+  <!-- 游戏下载页 + 全局拖拽安装（所有页面共享） -->
+  <link rel="stylesheet" href="styles/wmc-game-download.css" />
+  <link rel="stylesheet" href="styles/wmc-dragdrop.css" />
+</head>
+
+<body class="wmc-appBody">
+<div class="wmc-scope wmc-app" data-wmc-app>
+
+  <!-- ===================== 左侧导航（深黛蓝 · 无暗纹） ===================== -->
+  <nav class="wmc-app__nav" aria-label="主导航">
+    <!-- Logo：青玉细描边方印（内刻「W」）+ 名称 + 副标 -->
+    <div class="wmc-nav__brand">
+      <span class="wmc-nav__seal" aria-hidden="true">W</span>
+      <div class="wmc-nav__brandText">
+        <div class="wmc-nav__brandName">WMC</div>
+        <div class="wmc-nav__brandPinyin">WMC LAUNCHER</div>
+      </div>
+    </div>
+
+    <!-- 菜单：分组「开始 / 游戏管理 / 资源中心 / 系统」共 14 项，右侧带英文角标
+         （MOD / PACK / RP / SHADER / MAP / DATA / PLUGIN / SAVES），由外壳按 NAV_GROUPS 数据生成。
+         外层 .wmc-nav__scroll 负责内部平滑滚动 + 极细青色滚动条。 -->
+    <div class="wmc-nav__scroll" data-wmc-nav-menu></div>
+
+    <!-- 左下角账号卡：深青半透明 + 极细青边 + 状态点 -->
+    <div class="wmc-nav__user" data-wmc-user role="button" tabindex="0" aria-label="账户与皮肤">
+      <div class="wmc-nav__userTop">
+        <span class="wmc-nav__avatar" data-wmc-user-avatar aria-hidden="true">W</span>
+        <div>
+          <div class="wmc-nav__userName" data-wmc-user-name>冒险者</div>
+          <div class="wmc-nav__state" data-wmc-user-state>
+            <span class="wmc-nav__dot wmc-nav__dot--offline"></span><span>离线登录</span>
+          </div>
+        </div>
+      </div>
+      <div class="wmc-nav__version" data-wmc-user-version>WMC · v1.0.0</div>
+    </div>
+  </nav>
+
+  <!-- ===================== 主内容区 ===================== -->
+  <main class="wmc-app__main">
+
+    <!-- 顶部栏：两行页目标题（青玉大写英文 + 墨黑宋体中文）+ 搜索 + 齿轮 + 窗口按钮 -->
+    <header class="wmc-topbar">
+      <div class="wmc-pageTitle">
+        <span class="wmc-pageTitle__en" data-wmc-title-en>DASHBOARD</span>
+        <span class="wmc-pageTitle__cn" data-wmc-title-cn>首页</span>
+      </div>
+
+      <div class="wmc-topbar__search">
+        <span class="wmc-topbar__searchIcon" data-wmc-icon="search" aria-hidden="true"></span>
+        <input type="search" data-wmc-search placeholder="搜索模组 / 整合包 / 玩家…" aria-label="全局搜索" />
+      </div>
+
+      <div class="wmc-topbar__actions">
+        <button class="wmc-winbtn" type="button" data-wmc-gear aria-label="设置" title="启动器设置">
+          <span data-wmc-icon="gear" aria-hidden="true"></span>
+        </button>
+        <button class="wmc-winbtn" type="button" data-wmc-win="minimize" aria-label="最小化" title="最小化">
+          <span data-wmc-icon="minus" aria-hidden="true"></span>
+        </button>
+        <button class="wmc-winbtn" type="button" data-wmc-win="maximize" aria-label="最大化" title="最大化 / 还原">
+          <span data-wmc-icon="winMax" aria-hidden="true"></span>
+        </button>
+        <button class="wmc-winbtn wmc-winbtn--close" type="button" data-wmc-win="close" aria-label="关闭" title="关闭">
+          <span data-wmc-icon="close" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 页面宿主：首页由外壳克隆模板挂载；其余页面未实现时自动显示占位卡 -->
+    <div class="wmc-page" data-wmc-page-host></div>
+  </main>
+</div>
+
+<!-- ============================================================================
+     WMC 首页骨架模板 —— 水墨青绿
+     结构：微透光主面板（大白板）→ 六宫格快捷入口 → 底部（左为你推荐 / 右水墨黄历）
+     放在 <template> 里：SPA 路由每次进入首页都克隆一份干净骨架。
+     ============================================================================ -->
+<template data-wmc-template="home">
+  <div class="wmc-page__inner wmc-home" data-wmc-home>
+
+    <!-- 微透光主面板：墨黑大标题 + 朱砂印章「启动游戏」+ 状态栏 + 右侧方印 -->
+    <section class="wmc-hero">
+      <div class="wmc-hero__deco" aria-hidden="true"></div>
+
+      <div class="wmc-hero__body">
+        <div class="wmc-hero__eyebrow">WMC LAUNCHER</div>
+        <h1 class="wmc-hero__title">WMC</h1>
+        <p class="wmc-hero__sub" data-wmc-hero-sub>正在读取运行环境…</p>
+
+        <div class="wmc-hero__actions">
+          <!-- 印章质感启动按钮：朱砂红 -->
+          <button class="wmc-sealBtn" type="button" data-wmc-launch>
+            <span class="wmc-sealBtn__icon" data-wmc-launch-icon aria-hidden="true"></span>启动游戏
+          </button>
+          <button class="wmc-ghostBtn" type="button" data-wmc-hero-secondary>下载新版本</button>
+        </div>
+
+        <!-- 状态栏：版本 / 内存 / Java（没有版本时这里显示「没有版本」） -->
+        <div class="wmc-hero__status" data-wmc-hero-status></div>
+      </div>
+
+      <!-- 右侧方印（可换成插画 / logo） -->
+      <div class="wmc-hero__aside" aria-hidden="true">
+        <span class="wmc-hero__stamp">W</span>
+        <span class="wmc-hero__stampText">WMC LAUNCHER</span>
+      </div>
+    </section>
+
+    <!-- 六宫格快捷入口（磨砂微光方块，由 JS 填充：含环境体检 / 存档速览两个特色功能） -->
+    <section class="wmc-quicks" data-wmc-quicks aria-label="快捷入口"></section>
+
+    <!-- 底部：左「为你推荐」四列卡片流 / 右「水墨黄历 · 今日运势」 -->
+    <div class="wmc-home__bottom">
+
+      <section class="wmc-panel" data-wmc-recs>
+        <header class="wmc-panel__hd">
+          <span class="wmc-panel__title">为你推荐</span>
+          <span class="wmc-panel__en">RECOMMENDED</span>
+          <button class="wmc-panel__link" type="button" data-wmc-recs-more>更多模组 →</button>
+        </header>
+        <div class="wmc-panel__bd">
+          <div class="wmc-dc__grid wmc-home__recGrid"></div>
+        </div>
+      </section>
+
+      <aside class="wmc-almanac" data-wmc-almanac>
+        <span class="wmc-almanac__seal" aria-hidden="true">历</span>
+
+        <div class="wmc-almanac__hd">
+          <span class="wmc-almanac__fan" aria-hidden="true">
+            <span class="wmc-almanac__fanRibs"></span>
+          </span>
+          <div class="wmc-almanac__titleWrap">
+            <div class="wmc-almanac__title" data-wmc-almanac-title>水墨黄历</div>
+            <div class="wmc-almanac__date" data-wmc-almanac-date>—</div>
+          </div>
+        </div>
+
+        <div class="wmc-almanac__rows" data-wmc-almanac-rows></div>
+        <div class="wmc-almanac__note" data-wmc-almanac-note></div>
+      </aside>
+
+    </div>
+  </div>
+</template>
+
+<!-- ============================================================================
+     WMC 游戏下载页骨架模板（原版版本下载）
+     数据全部来自主进程真实接口（wmc:versions:*）：渲染层不联网、也没有假数据。
+     ============================================================================ -->
+<template data-wmc-template="game">
+  <div class="wmc-page__inner wmc-dl" data-wmc-download>
+
+    <!-- 顶部：最新正式版大卡片 -->
+    <section class="wmc-dl__latest">
+      <div class="wmc-dl__deco" aria-hidden="true"></div>
+
+      <div class="wmc-dl__latestMain">
+        <div class="wmc-dl__label">LATEST RELEASE</div>
+        <div class="wmc-dl__version" data-wmc-dl-latest-version>最新正式版：读取中…</div>
+        <div class="wmc-dl__latestMeta" data-wmc-dl-latest-meta></div>
+      </div>
+
+      <div class="wmc-dl__latestAction">
+        <button class="wmc-sealBtn wmc-dl__installAll" type="button" data-wmc-dl-install-all>
+          <span class="wmc-sealBtn__icon" data-wmc-dl-install-icon aria-hidden="true"></span>一键安装最新版
+        </button>
+      </div>
+    </section>
+
+    <!-- 筛选栏：搜索 / 分类下拉 / 下载源下拉 / 刷新 / 计数 -->
+    <div class="wmc-dl__bar">
+      <div class="wmc-dl__search">
+        <span class="wmc-dl__searchIcon" data-wmc-icon="search" aria-hidden="true"></span>
+        <input type="search" data-wmc-dl-search placeholder="按版本号搜索，例如 1.21 或 26.3" aria-label="搜索版本号" />
+      </div>
+
+      <!-- 分类：正式版 / 预览版 / 远古版 / 愚人节版（自定义下拉，默认正式版） -->
+      <div data-wmc-dl-category></div>
+      <!-- 下载源：官方源 / BMCLAPI 镜像（自定义下拉） -->
+      <div data-wmc-dl-source></div>
+
+      <button class="wmc-dl__refresh" type="button" data-wmc-dl-refresh>
+        <span class="wmc-dl__refreshIcon" data-wmc-icon="refresh" aria-hidden="true"></span>刷新
+      </button>
+
+      <span class="wmc-dl__count" data-wmc-dl-count>正在读取版本清单…</span>
+    </div>
+
+    <!-- 版本列表（极简行；加载时是骨架屏，失败时是红字提示） -->
+    <section class="wmc-dl__list" data-wmc-dl-list aria-live="polite"></section>
+  </div>
+</template>
+
+<script type="module" src="scripts/app-shell.js"></script>
+</body>
+</html>

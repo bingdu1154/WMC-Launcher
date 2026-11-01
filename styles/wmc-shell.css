@@ -1,0 +1,519 @@
+/* =============================================================================
+   WMC · 全局框架（左侧导航 + 顶部栏 + 页目标题 + 内容区）
+   -----------------------------------------------------------------------------
+   水墨青绿版：深黛蓝导航、无任何暗纹、选中态只用一根细短竖线，
+   所有「生硬边框」换成极淡青灰细线或纯阴影。
+   ============================================================================= */
+
+@layer wmc.shell {
+
+  /* ================================================================ 宿主 / 骨架 */
+  .wmc-appBody {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--wmc-bg);
+  }
+
+  .wmc-app {
+    display: grid;
+    grid-template-columns: var(--wmc-nav-w) minmax(0, 1fr);
+    /* 关键：把行高约束在容器内（minmax(0,1fr)），
+       否则两侧会被内容撑高 —— 导航菜单变长后下半截会被裁掉且无法滚动。 */
+    grid-template-rows: minmax(0, 1fr);
+    height: 100vh;
+    min-height: 620px;
+    background: var(--wmc-bg);
+    color: var(--wmc-ink);
+    font-family: var(--wmc-font-serif);
+    overflow: hidden;
+  }
+
+  /* ================================================================ 左侧导航 */
+  /* 深黛蓝纯色渐变，无祥云暗纹、无内边框。
+     布局：品牌固定在上 → 菜单区内部滚动 → 账号卡固定在下。 */
+  .wmc-app__nav {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;              /* 允许被压矮，内部滚动才能生效 */
+    padding: 18px 12px 14px;
+    background: linear-gradient(180deg, var(--wmc-nav-bg-from), var(--wmc-nav-bg-to));
+    box-shadow: var(--wmc-sh-nav);
+    /* 导航自身不滚动，滚动交给 .wmc-nav__scroll，这样账号卡永远不会被挤走 */
+    overflow: hidden;
+  }
+
+  /* ---------------- 菜单滚动区（14 项菜单，内部平滑滚动） ---------------- */
+  .wmc-nav__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;   /* 滚到边界不带动整个窗口 */
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;       /* 预留滚动条位置，出现/消失不抖动 */
+    padding-right: 2px;
+  }
+
+  /* ---- 极细青色滚动条（Chromium / Electron）：绝不出现 Windows 默认的灰色粗条 ---- */
+  .wmc-nav__scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .wmc-nav__scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .wmc-nav__scroll::-webkit-scrollbar-thumb {
+    background: rgba(122, 178, 164, 0.40);   /* 青玉色细条 */
+    border: 0;
+    border-radius: 3px;
+  }
+
+  .wmc-nav__scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(122, 178, 164, 0.68);
+  }
+
+  .wmc-nav__scroll::-webkit-scrollbar-thumb:active {
+    background: rgba(122, 178, 164, 0.85);
+  }
+
+  /* 去掉两端的箭头按钮与角落方块（Windows 默认样式的主要来源） */
+  .wmc-nav__scroll::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  .wmc-nav__scroll::-webkit-scrollbar-corner { background: transparent; }
+
+  /* Firefox 等不支持 ::-webkit-scrollbar 的引擎：用标准属性给一条细青条。
+     注意：一旦设置 scrollbar-width，Chromium 会忽略上面的 ::-webkit- 样式，
+     所以这里用 @supports 反向排除，两个引擎各走各的。 */
+  @supports not selector(::-webkit-scrollbar) {
+    .wmc-nav__scroll {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(122, 178, 164, 0.45) transparent;
+    }
+  }
+
+  /* Logo：黛蓝底 + 青玉细描边的方形印记（不再是金色印章） */
+  .wmc-nav__brand {
+    position: relative;
+    flex: 0 0 auto;                 /* 固定在顶部，不参与滚动 */
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 2px 6px 15px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(200, 216, 212, 0.10);
+  }
+
+  .wmc-nav__seal {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    font-family: var(--wmc-font-serif);
+    font-size: 19px;
+    font-weight: var(--wmc-fw-bold);
+    color: var(--wmc-jade);
+    background: rgba(78, 140, 126, 0.14);
+    border: 1px solid var(--wmc-jade-line);
+    border-radius: var(--wmc-r-sm);
+    transition: color var(--wmc-dur) var(--wmc-ease),
+                border-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-nav__brandText { min-width: 0; }
+
+  .wmc-nav__brandName {
+    font-size: 15px;
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.14em;
+    color: var(--wmc-nav-text-active);
+  }
+
+  .wmc-nav__brandPinyin {
+    margin-top: 3px;
+    font-family: var(--wmc-font-en);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: rgba(200, 216, 212, 0.42);
+  }
+
+  /* 分组标题：开始 / 资源中心 */
+  .wmc-nav__group {
+    padding: 14px 10px 6px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--wmc-nav-group);
+  }
+
+  /* 菜单项：无背景块，靠文字与细线表达状态 */
+  .wmc-nav__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 10px 12px 10px 16px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--wmc-nav-text);
+    background: transparent;
+    border: 0;
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: color var(--wmc-dur) var(--wmc-ease),
+                background-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  /* 左侧细短竖线：默认缩成一条线，悬停/选中时立起（青玉色） */
+  .wmc-nav__item::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 50%;
+    width: 2px;
+    height: 16px;
+    margin-top: -8px;
+    background: var(--wmc-jade);
+    border-radius: 2px;
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform var(--wmc-dur) var(--wmc-ease-out),
+                background-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-nav__item:hover {
+    color: rgba(255, 255, 255, 0.9);
+    background: var(--wmc-nav-hover);
+  }
+
+  .wmc-nav__item:hover::before { transform: scaleY(0.6); }
+
+  /* 选中态：文字变白加粗 + 细短竖线；没有大面积高亮色块 */
+  .wmc-nav__item--active {
+    color: var(--wmc-nav-text-active);
+    font-weight: var(--wmc-fw-bold);
+    background: transparent;
+  }
+
+  .wmc-nav__item--active::before { transform: scaleY(1); }
+
+  .wmc-nav__icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: currentColor;
+    opacity: 0.7;
+    transition: opacity var(--wmc-dur) var(--wmc-ease), color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-nav__icon svg { width: 100%; height: 100%; }
+
+  .wmc-nav__item--active .wmc-nav__icon { opacity: 1; color: var(--wmc-jade); }
+
+  .wmc-nav__label { flex: 1 1 auto; }
+
+  /* 角标：青玉描边的小字，不再是金框 */
+  .wmc-nav__badge {
+    flex: 0 0 auto;
+    padding: 1px 6px;
+    font-family: var(--wmc-font-en);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: rgba(200, 216, 212, 0.78);
+    background: rgba(200, 216, 212, 0.06);
+    border: 1px solid rgba(200, 216, 212, 0.18);
+    border-radius: var(--wmc-r-xs);
+  }
+
+  /* 左下角账号卡：深青色半透明 + 极细青边 + 绿色状态点；固定在底部不参与滚动 */
+  .wmc-nav__user {
+    position: relative;
+    flex: 0 0 auto;
+    padding: 11px 12px;
+    margin-top: 8px;
+    background: var(--wmc-nav-card);
+    border: 1px solid var(--wmc-nav-card-line);
+    border-radius: var(--wmc-r-md);
+    cursor: pointer;
+    transition: background-color var(--wmc-dur) var(--wmc-ease),
+                border-color var(--wmc-dur) var(--wmc-ease),
+                transform var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-nav__user:hover {
+    background: rgba(78, 140, 126, 0.24);
+    border-color: rgba(122, 178, 164, 0.55);
+    transform: translateY(-1px);
+  }
+
+  .wmc-nav__userTop {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .wmc-nav__avatar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    font-size: 17px;
+    font-weight: var(--wmc-fw-bold);
+    color: var(--wmc-jade);
+    background: rgba(43, 58, 66, 0.45);
+    border: 1px solid var(--wmc-jade-line);
+    border-radius: var(--wmc-r-sm);
+  }
+
+  .wmc-nav__userName {
+    font-size: 13.5px;
+    font-weight: var(--wmc-fw-bold);
+    color: var(--wmc-nav-text-active);
+  }
+
+  .wmc-nav__state {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: rgba(200, 216, 212, 0.62);
+  }
+
+  .wmc-nav__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--wmc-jade);
+    box-shadow: 0 0 0 3px rgba(78, 140, 126, 0.20);
+  }
+
+  /* 离线：青玉点；在线才用亮绿（这里保持青玉系，避免出现「红金」之外的杂色） */
+  .wmc-nav__dot--offline {
+    background: var(--wmc-jade);
+    box-shadow: 0 0 0 3px rgba(78, 140, 126, 0.20);
+  }
+
+  .wmc-nav__version {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(200, 216, 212, 0.10);
+    font-family: var(--wmc-font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: rgba(200, 216, 212, 0.38);
+  }
+
+  /* ================================================================ 主区 */
+  .wmc-app__main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;              /* 同上：让内容区滚动而不是把外壳撑高 */
+    background: var(--wmc-bg);
+  }
+
+  /* 顶部栏：两行页目标题 + 搜索 + 齿轮 + 窗口按钮，去掉生硬分隔线 */
+  .wmc-topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 15px 22px 13px;
+    background: transparent;
+    border-bottom: 1px solid var(--wmc-hairline);
+    -webkit-app-region: drag;      /* Electron 无边框窗口可拖动；按钮已置 no-drag */
+  }
+
+  .wmc-topbar__search {
+    position: relative;
+    flex: 0 1 240px;
+    min-width: 160px;
+    -webkit-app-region: no-drag;
+  }
+
+  .wmc-topbar__search input {
+    width: 100%;
+    padding: 8px 14px 8px 32px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--wmc-ink);
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--wmc-hairline);
+    border-radius: var(--wmc-r-pill);
+    transition: border-color var(--wmc-dur) var(--wmc-ease),
+                box-shadow var(--wmc-dur) var(--wmc-ease),
+                background-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-topbar__search input::placeholder { color: var(--wmc-ink-4); }
+
+  .wmc-topbar__search input:focus {
+    outline: none;
+    background: #FFFFFF;
+    border-color: var(--wmc-jade-line);
+    box-shadow: 0 0 0 3px var(--wmc-jade-soft);
+  }
+
+  .wmc-topbar__searchIcon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: var(--wmc-ink-4);
+    pointer-events: none;
+  }
+
+  .wmc-topbar__searchIcon svg { width: 100%; height: 100%; }
+
+  .wmc-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    -webkit-app-region: no-drag;
+  }
+
+  /* 窗口按钮：无边框，悬停只有极淡底色 */
+  .wmc-winbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 30px;
+    color: var(--wmc-ink-3);
+    background: transparent;
+    border: 0;
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    transition: background-color var(--wmc-dur-fast) var(--wmc-ease),
+                color var(--wmc-dur-fast) var(--wmc-ease);
+  }
+
+  .wmc-winbtn svg { width: 14px; height: 14px; }
+
+  .wmc-winbtn:hover {
+    color: var(--wmc-deep);
+    background: rgba(43, 58, 66, 0.07);
+  }
+
+  .wmc-winbtn--close:hover {
+    color: #FFF6F6;
+    background: var(--wmc-cinnabar);
+  }
+
+  /* ================================================================ 页目标题 */
+  /* 规范：第一行小号、字母拉开的英文大写；第二行大号墨黑宋体中文 */
+  .wmc-pageTitle {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .wmc-pageTitle--right { align-items: flex-end; text-align: right; }
+
+  .wmc-pageTitle__en {
+    font-family: var(--wmc-font-en);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.36em;
+    text-transform: uppercase;
+    /* 水墨青绿体系下改用青玉色（想换回暖色时，只需在这里替换成对应的强调色变量） */
+    color: var(--wmc-jade-deep);
+  }
+
+  .wmc-pageTitle__cn {
+    font-family: var(--wmc-font-serif);
+    font-size: var(--wmc-fs-2xl);
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.08em;
+    line-height: 1.15;
+    color: var(--wmc-ink);
+  }
+
+  /* ================================================================ 内容区 */
+  .wmc-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 22px 28px;
+    background: var(--wmc-bg);
+  }
+
+  .wmc-page__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* 尚未实现的页面占位：无生硬边框，用极淡细线 + 大面积留白 */
+  .wmc-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 320px;
+    padding: 40px 26px;
+    text-align: center;
+    background: var(--wmc-paper);
+    border: 1px solid var(--wmc-hairline);
+    border-radius: var(--wmc-r-lg);
+    box-shadow: var(--wmc-sh-1);
+  }
+
+  .wmc-placeholder__icon { font-size: 30px; opacity: 0.45; }
+
+  .wmc-placeholder__title {
+    font-size: var(--wmc-fs-lg);
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.1em;
+    color: var(--wmc-ink);
+  }
+
+  .wmc-placeholder__text {
+    max-width: 560px;
+    font-size: var(--wmc-fs-sm);
+    line-height: 1.75;
+    color: var(--wmc-ink-3);
+  }
+
+  /* ================================================================ 窄窗口 */
+  @media (max-width: 1080px) {
+    .wmc-app { grid-template-columns: 196px minmax(0, 1fr); }
+    .wmc-pageTitle__cn { font-size: var(--wmc-fs-xl); }
+    .wmc-topbar__search { flex-basis: 160px; }
+  }
+
+  @media (max-width: 860px) {
+    .wmc-app { grid-template-columns: 68px minmax(0, 1fr); }
+    .wmc-nav__brandText,
+    .wmc-nav__group,
+    .wmc-nav__label,
+    .wmc-nav__badge,
+    .wmc-nav__userName,
+    .wmc-nav__state,
+    .wmc-nav__version { display: none; }
+    .wmc-nav__item { justify-content: center; padding: 11px 0; }
+    .wmc-nav__user { padding: 8px; }
+    .wmc-nav__userTop { justify-content: center; }
+  }
+}

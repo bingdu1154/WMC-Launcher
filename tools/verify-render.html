@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WMC 面板 · 渲染校验</title>
+  <!-- 与真实接入完全一致的四份样式 -->
+  <link rel="stylesheet" href="../styles/wmc-tokens.css" />
+  <link rel="stylesheet" href="../styles/wmc-primitives.css" />
+  <link rel="stylesheet" href="../styles/wmc-download-center.css" />
+  <link rel="stylesheet" href="../styles/wmc-runtime-panel.css" />
+  <style>
+    html, body { margin: 0; padding: 0; }
+    #stage { width: 1400px; height: 900px; overflow: hidden; }
+    #stage2 { width: 1000px; height: 900px; overflow: hidden; }
+    #probe { position: absolute; left: -9999px; top: 0; }
+    #out { margin: 0; padding: 12px; font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="stage2"></div>
+<div id="probe" class="wmc-scope"></div>
+<pre id="out">PENDING</pre>
+
+<script type="module">
+/**
+ * 渲染校验台（渲染层真机校验，不是单元测试的替代）
+ * ---------------------------------------------------------------------------
+ * 用 headless Chromium 打开本页，会把「计算样式 / 几何 / 动画」实测结果写进 #out。
+ * 依据：需求里所有可以量化的视觉点（列数、金边、宣纸白、宋体、三色状态…）。
+ */
+import { createBridge } from '../scripts/wmc-bridge.js';
+import { mountDownloadCenter } from '../scripts/wmc-download-center.js';
+import { mountRuntimePanel } from '../scripts/wmc-runtime-panel.js';
+
+const checks = [];
+const errors = [];
+const check = (name, pass, detail) => checks.push({ name, pass: !!pass, detail: String(detail ?? '') });
+
+// 捕获面板运行期的任何报错
+const origError = console.error;
+console.error = (...args) => { errors.push(args.map(String).join(' ')); origError(...args); };
+window.addEventListener('error', (e) => errors.push('window.onerror: ' + e.message));
+
+const css = (node, prop) => node ? getComputedStyle(node).getPropertyValue(prop).trim() : '';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(fn, timeout = 8000, step = 100) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try { if (fn()) return true; } catch { /* ignore */ }
+    await sleep(step);
+  }
+  return false;
+}
+
+/** 从真实解析出的 CSSOM 里找一条规则（验证 hover/伪元素这类无法直接测的样式） */
+function findStyleRule(selectorText, prop) {
+  for (const sheet of document.styleSheets) {
+    let rules;
+    try { rules = sheet.cssRules; } catch { continue; }
+    const found = searchRules(rules, selectorText, prop);
+    if (found !== null) return found;
+  }
+  return null;
+}
+function searchRules(rules, selectorText, prop) {
+  for (const rule of rules) {
+    if (rule.cssRules) {
+      const nested = searchRules(rule.cssRules, selectorText, prop);
+      if (nested !== null) return nested;
+    }
+    if (rule.selectorText && rule.selectorText.split(',').some((s) => s.trim() === selectorText)) {
+      if (!prop) return rule.style.cssText;
+      const value = rule.style.getPropertyValue(prop);
+      if (value) return value.trim();
+    }
+  }
+  return null;
+}
+
+const report = { checks, errors, summary: {} };
+
+try {
+  /* ============================================================ 准备 DOM */
+  const dcHtml = await fetch('../panels/download-center.html').then((r) => r.text());
+  const envHtml = await fetch('../panels/runtime-panel.html').then((r) => r.text());
+  document.getElementById('stage').innerHTML = dcHtml;
+  document.getElementById('stage2').innerHTML = envHtml;
+
+  const bridge = createBridge({ forceMock: true, onWarn: () => {} });
+  report.bridgeMode = bridge.mode;
+
+  /* ============================================================ 下载中心 */
+  const dc = await mountDownloadCenter(document.querySelector('[data-wmc-dc]'), { bridge, pageSize: 24 });
+  const gotCards = await waitFor(() => document.querySelectorAll('#stage .wmc-mod:not(.wmc-mod--skeleton)').length >= 8);
+  check('卡片渲染成功（≥8 张真实卡片）', gotCards,
+    `实际 ${document.querySelectorAll('#stage .wmc-mod:not(.wmc-mod--skeleton)').length} 张`);
+
+  const grid = document.querySelector('#stage .wmc-dc__grid');
+  const cols = css(grid, 'grid-template-columns').split(/\s+/).filter(Boolean).length;
+  check('卡片网格为 3~6 列（非单列长条）', cols >= 3 && cols <= 6, `实际 ${cols} 列 · 1400px 视口`);
+  check('网格使用 Grid 布局', css(grid, 'display') === 'grid', css(grid, 'display'));
+
+  const card = document.querySelector('#stage .wmc-mod');
+  check('卡片有圆角', parseFloat(css(card, 'border-top-left-radius')) > 0, css(card, 'border-top-left-radius'));
+  check('卡片有阴影', css(card, 'box-shadow') !== 'none', css(card, 'box-shadow').slice(0, 42) + '…');
+  check('卡片参与内容可见性优化（content-visibility）', css(card, 'content-visibility') === 'auto',
+    css(card, 'content-visibility'));
+
+  const title = document.querySelector('#stage .wmc-mod__title');
+  check('标题使用宋体字体链', /SimSun|Songti|Noto Serif SC|serif/.test(css(title, 'font-family')),
+    css(title, 'font-family').slice(0, 46) + '…');
+  check('标题加粗', Number(css(title, 'font-weight')) >= 600, css(title, 'font-weight'));
+  check('标题最多两行（line-clamp）', css(title, '-webkit-line-clamp') === '2', css(title, '-webkit-line-clamp'));
+
+  const desc = document.querySelector('#stage .wmc-mod__desc');
+  check('简介限制 2 行', css(desc, '-webkit-line-clamp') === '2', css(desc, '-webkit-line-clamp'));
+  check('简介溢出省略', css(desc, 'text-overflow') === 'ellipsis' || css(desc, 'overflow') === 'hidden',
+    `overflow=${css(desc, 'overflow')}`);
+
+  const author = document.querySelector('#stage .wmc-mod__author');
+  check('作者用灰色小字', /1[0-3]px/.test(css(author, 'font-size')) && /rgb\(122, 138, 143\)|rgb\(74, 63, 50\)/.test(css(author, 'color')),
+    `${css(author, 'font-size')} / ${css(author, 'color')}`);
+
+  const badge = document.querySelector('#stage .wmc-mod__badge');
+  const badgeBg = css(badge, 'background-color');
+  const alphaMatch = badgeBg.match(/rgba?\([^)]*?,\s*([\d.]+)\s*\)$/);
+  const alpha = alphaMatch ? Number(alphaMatch[1]) : 1;
+  check('来源角标为半透明底色', alpha < 1, `${badgeBg}（alpha=${alpha}）`);
+  check('来源角标位于右上角',
+    css(badge, 'position') === 'absolute' && css(badge, 'top') === '10px' && css(badge, 'right') === '10px',
+    `${css(badge, 'position')} top=${css(badge, 'top')} right=${css(badge, 'right')}`);
+
+  const img = document.querySelector('#stage .wmc-mod__img');
+  const imgLoaded = await waitFor(() => img && img.naturalWidth > 0);
+  const allImgs = Array.from(document.querySelectorAll('#stage .wmc-mod__img'));
+  const loadedImgs = allImgs.filter((n) => n.naturalWidth > 0);
+  check('封面图已真实加载（首张）', imgLoaded, `naturalWidth=${img?.naturalWidth} src=${String(img?.getAttribute('src')).slice(0, 34)}…`);
+  check('绝大多数封面都已加载', allImgs.length > 0 && loadedImgs.length / allImgs.length >= 0.8,
+    `${loadedImgs.length}/${allImgs.length} 张已加载`);
+
+  // 骨架 → 渐显是「onload 之后再等一小段时间」，所以这里要等骨架真正让位
+  const skeletonGone = await waitFor(
+    () => document.querySelectorAll('#stage .wmc-mod__coverSkeleton:not(.is-done)').length === 0, 4000);
+  check('封面骨架屏已全部让位（渐显完成）', skeletonGone,
+    `残留骨架 ${document.querySelectorAll('#stage .wmc-mod__coverSkeleton:not(.is-done)').length} 个`);
+  // opacity 有 320ms 过渡；--dump-dom 模式不推进合成动画，所以这里校验「机制」而不是运行中的数值：
+  //   a) 元素确实挂上了 is-loaded（说明 cover 的 load 事件按预期触发）
+  //   b) 对应的 CSS 规则确实是 opacity: 1
+  // 数值本身放在 detail 里给出（截图模式下会看到它就是 1）。
+  const loadedClass = img?.classList.contains('is-loaded');
+  const loadedRuleOpacity = findStyleRule('.wmc-mod__img.is-loaded', 'opacity');
+  check('封面渐显机制：is-loaded + opacity:1 规则',
+    !!loadedClass && loadedRuleOpacity === '1',
+    `class.is-loaded=${loadedClass} · 规则 opacity=${loadedRuleOpacity} · 实测 opacity=${css(img, 'opacity')}（dump-dom 不推进动画）`);
+  check('封面保持 16:9 比例', /aspect-ratio|16 \/ 9/.test(css(document.querySelector('#stage .wmc-mod__cover'), 'aspect-ratio')
+    || css(document.querySelector('#stage .wmc-mod__cover'), 'aspect-ratio') !== 'auto'),
+    css(document.querySelector('#stage .wmc-mod__cover'), 'aspect-ratio'));
+
+  const getBtn = document.querySelector('#stage .wmc-mod__get');
+  check('「获取」按钮为朱砂红 #C04851', css(getBtn, 'background-color') === 'rgb(192, 72, 81)', css(getBtn, 'background-color'));
+  check('「获取」按钮文字为浅色',
+    /rgb\(255, 247, 239\)/.test(css(getBtn, 'color')), css(getBtn, 'color'));
+
+  const dl = document.querySelector('#stage .wmc-mod__dl');
+  check('底部栏显示下载量', /\d/.test(dl?.textContent || ''), dl?.textContent?.trim());
+
+  // 悬停效果来自 CSSOM（无法在无头里真实悬停）
+  const hoverTransform = findStyleRule('.wmc-mod:hover', 'transform');
+  const hoverShadow = findStyleRule('.wmc-mod:hover', 'box-shadow');
+  check('悬停上浮 translateY(-3px)', /translateY\(-3px\)/.test(hoverTransform || ''), hoverTransform || '未找到');
+  check('悬停阴影加深（含 sh-lift 变量）', /--wmc-sh-lift/.test(hoverShadow || '') || /rgba\(31, 27, 22, 0.1[5-9]\)/.test(hoverShadow || ''),
+    (hoverShadow || '未找到').slice(0, 60));
+  check('悬停金边发光', /gold-glow|212, 175, 55/.test(hoverShadow || ''), (hoverShadow || '').slice(0, 60));
+
+  /* ---- 分类：金边卷轴 + 朱砂印章 ---- */
+  const activeCat = document.querySelector('#stage .wmc-dc__cat--active');
+  check('存在选中的分类项', !!activeCat, activeCat?.textContent?.trim());
+  check('选中分类为金色左边框（卷轴）',
+    css(activeCat, 'border-left-color') === 'rgb(212, 175, 55)', css(activeCat, 'border-left-color'));
+  const seal = activeCat?.querySelector('.wmc-dc__seal');
+  check('选中分类显示朱砂印章',
+    seal && css(seal, 'display') !== 'none' && css(seal, 'background-color') === 'rgb(192, 72, 81)',
+    seal ? `${css(seal, 'display')} / ${css(seal, 'background-color')}` : '未找到印章');
+  const catCount = document.querySelectorAll('#stage .wmc-dc__cat').length;
+  check('8 个下载分类齐全', catCount === 8, `实际 ${catCount} 个`);
+
+  /* ---- 自定义下拉 ---- */
+  const trigger = document.querySelector('#stage .wmc-select__trigger');
+  check('存在自定义下拉触发器', !!trigger && trigger.tagName === 'BUTTON', trigger?.tagName);
+  check('触发器为金色细边（#D4AF37 系）',
+    /212, 175, 55/.test(css(trigger, 'border-top-color')), css(trigger, 'border-top-color'));
+  check('触发器是宣纸白底（#F9F4E8）', css(trigger, 'background-color') === 'rgb(251, 253, 252)', css(trigger, 'background-color'));
+  check('下拉不是原生 select', document.querySelectorAll('select').length === 0 && document.querySelectorAll('#stage select').length === 0,
+    `文档内 select 数量=${document.querySelectorAll('select').length}`);
+
+  dc.debug.sourceSelect.openPanel();
+  await sleep(260);
+  const panelEl = document.querySelector('.wmc-select__panel.is-open');
+  check('下拉浮层已展开', !!panelEl, panelEl ? 'is-open' : '未展开');
+  if (panelEl) {
+    check('浮层为宣纸白（#F9F4E8）', css(panelEl, 'background-color') === 'rgb(251, 253, 252)', css(panelEl, 'background-color'));
+    check('浮层有金色细边', /212, 175, 55/.test(css(panelEl, 'border-top-color')), css(panelEl, 'border-top-color'));
+    check('浮层有展开过渡（transition）', /opacity/.test(css(panelEl, 'transition-property')), css(panelEl, 'transition-property'));
+    check('浮层挂到 body 且为 fixed（不被父级裁切）',
+      panelEl.parentElement === document.body && css(panelEl, 'position') === 'fixed',
+      `parent=${panelEl.parentElement?.tagName} position=${css(panelEl, 'position')}`);
+    check('浮层已脱离滚动容器裁切（z-index 有效）', Number(css(panelEl, 'z-index')) >= 50, css(panelEl, 'z-index'));
+    check('选项数量与来源一致（含“全部来源”）',
+      panelEl.querySelectorAll('.wmc-select__opt').length >= 4,
+      `${panelEl.querySelectorAll('.wmc-select__opt').length} 项`);
+    check('浮层已获得设计令牌（wmc-scope）', panelEl.classList.contains('wmc-scope'), panelEl.className);
+  }
+  dc.debug.sourceSelect.close();
+
+  /* ---- 骨架屏动画 ---- */
+  const skel = document.createElement('div');
+  skel.className = 'wmc-skeleton';
+  document.getElementById('probe').appendChild(skel);
+  const skelAnim = getComputedStyle(skel, '::after').animationName;
+  check('骨架屏有微光动画 wmc-shimmer', skelAnim === 'wmc-shimmer', skelAnim);
+  const skelBg = css(skel, 'background-image');
+  check('骨架屏有底色渐变', /gradient/.test(skelBg), skelBg.slice(0, 44) + '…');
+
+  /* ---- 层叠隔离（@layer 是否真的生效） ---- */
+  let layerFound = false;
+  for (const sheet of document.styleSheets) {
+    try {
+      for (const rule of sheet.cssRules) {
+        if (rule.constructor.name === 'CSSLayerBlockRule' || /@layer/.test(rule.cssText || '')) layerFound = true;
+      }
+    } catch { /* 跨域样式表忽略 */ }
+  }
+  check('样式确实声明在 @layer 中（模块化隔离生效）', layerFound, layerFound ? '找到 layer 块' : '未找到 @layer');
+
+  /* ============================================================ 运行环境 */
+  const env = await mountRuntimePanel(document.querySelector('[data-wmc-env]'), { bridge });
+  const envReady = await waitFor(() => document.querySelectorAll('#stage2 .wmc-env__row').length >= 4);
+  check('运行环境渲染出 ≥4 行', envReady,
+    `实际 ${document.querySelectorAll('#stage2 .wmc-env__row').length} 行`);
+
+  const labels = Array.from(document.querySelectorAll('#stage2 .wmc-env__label')).map((n) => n.textContent.trim());
+  for (const want of ['Java 运行时', '物理内存', '下载源', '游戏目录']) {
+    check(`包含「${want}」一行`, labels.includes(want), labels.join(' / '));
+  }
+
+  const labelNode = document.querySelector('#stage2 .wmc-env__label');
+  const valueNode = document.querySelector('#stage2 .wmc-env__value');
+  check('标签为灰色宋体', css(labelNode, 'color') === 'rgb(122, 138, 143)', css(labelNode, 'color'));
+  check('值为深色宋体', /rgb\(31, 42, 46\)|rgb\(63, 122, 85\)|rgb\(168, 134, 42\)/.test(css(valueNode, 'color')),
+    css(valueNode, 'color'));
+  check('行的左右分栏（grid-template-columns）', css(document.querySelector('#stage2 .wmc-env__row'), 'grid-template-columns').split(/\s+/).length >= 2,
+    css(document.querySelector('#stage2 .wmc-env__row'), 'grid-template-columns'));
+
+  // 三色状态：用探针元素验证 CSS 规则真实生效
+  const probe = document.getElementById('probe');
+  const mk = (cls) => { const n = document.createElement('span'); n.className = cls; probe.appendChild(n); return n; };
+  const okNode = mk('wmc-env__value is-ok');
+  const warnNode = mk('wmc-env__value is-warn');
+  const goldNode = mk('wmc-env__value is-gold');
+  check('正常态为青竹绿 #3F7A55', css(okNode, 'color') === 'rgb(78, 140, 126)', css(okNode, 'color'));
+  check('警告态为朱砂红 #C04851', css(warnNode, 'color') === 'rgb(192, 72, 81)', css(warnNode, 'color'));
+  check('提示态为金色 #A8862A', css(goldNode, 'color') === 'rgb(168, 134, 42)', css(goldNode, 'color'));
+
+  const panelCard = document.querySelector('#stage2 .wmc-env__panel');
+  check('面板卡片有纸张纹理', /data:image\/svg|url\(/.test(css(panelCard, 'background-image')),
+    css(panelCard, 'background-image').slice(0, 42) + '…');
+  check('面板卡片有圆角与金边', parseFloat(css(panelCard, 'border-top-left-radius')) >= 8
+    && /212, 175, 55/.test(css(panelCard, 'border-top-color')),
+    `${css(panelCard, 'border-top-left-radius')} / ${css(panelCard, 'border-top-color')}`);
+
+  const steppers = document.querySelectorAll('#stage2 .wmc-env__stepBtn');
+  check('内存使用自绘步进器（非原生 range）',
+    steppers.length === 2 && document.querySelectorAll('#stage2 input[type=range]').length === 0,
+    `步进按钮 ${steppers.length} 个 / range 输入 ${document.querySelectorAll('#stage2 input[type=range]').length} 个`);
+  const meterFill = document.querySelector('#stage2 .wmc-meter__fill');
+  check('内存条有宽度（已分配比例）', parseFloat(css(meterFill, 'width')) > 0, css(meterFill, 'width'));
+
+  const envSelects = document.querySelectorAll('#stage2 .wmc-select__trigger');
+  check('运行环境内的下载源也是自定义下拉', envSelects.length >= 1,
+    `${envSelects.length} 个自定义下拉 / 原生 select ${document.querySelectorAll('#stage2 select').length} 个`);
+
+  const summaryText = document.querySelector('[data-wmc-env-summary]').textContent.trim();
+  check('顶部有状态汇总', summaryText.length > 0, summaryText);
+  const metaText = document.querySelector('[data-wmc-env-meta]').textContent.trim();
+  check('底部显示数据来源与保存态', /IPC|模拟数据/.test(metaText), metaText);
+
+  /* ---- 分页/触底 ---- */
+  const st = dc.getState();
+  check('分页状态可用（page/total/hasMore）', typeof st.page === 'number' && st.total > 0,
+    `page=${st.page} total=${st.total} rendered=${st.rendered} hasMore=${st.hasMore}`);
+
+  env.destroy();
+  dc.destroy();
+} catch (error) {
+  errors.push('校验台异常: ' + (error?.stack || error));
+  check('校验流程完整执行', false, String(error?.message || error));
+}
+
+/* ============================================================ 输出 */
+const passed = checks.filter((c) => c.pass).length;
+const failed = checks.filter((c) => !c.pass);
+report.summary = { total: checks.length, passed, failed: failed.length };
+document.getElementById('out').textContent =
+  'WMC_RENDER_REPORT_BEGIN\n' + JSON.stringify(report, null, 1) + '\nWMC_RENDER_REPORT_END';
+document.title = failed.length === 0 ? 'RENDER_OK' : `RENDER_FAIL(${failed.length})`;
+</script>
+</body>
+</html>

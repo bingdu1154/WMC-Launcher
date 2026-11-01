@@ -1,0 +1,404 @@
+/* =============================================================================
+   WMC 启动器 · 游戏下载页（水墨青绿）
+   -----------------------------------------------------------------------------
+   结构：顶部最新正式版大卡片 → 筛选栏（搜索 / 分类下拉 / 下载源下拉 / 刷新）
+        → 极简版本列表（大字版本号 + 类型标签 + 发布时间 + 朱砂红安装按钮）
+   状态：骨架屏 / 红字错误 / 空列表
+   数据：全部来自主进程真实接口（渲染层不做任何网络请求，也没有假数据）
+   ============================================================================= */
+
+@layer wmc.panels {
+
+  .wmc-dl {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ================================================================ 顶部：最新正式版大卡片 */
+  .wmc-dl__latest {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    min-height: 172px;
+    padding: 26px 32px;
+    overflow: hidden;
+    background: linear-gradient(160deg,
+      rgba(255, 255, 255, 0.94) 0%,
+      rgba(248, 251, 250, 0.88) 60%,
+      rgba(240, 245, 244, 0.82) 100%);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--wmc-hairline);
+    border-radius: var(--wmc-r-lg);
+    box-shadow: var(--wmc-sh-2), var(--wmc-sh-inset);
+  }
+
+  /* 极淡水墨山峦（贴在卡片底部） */
+  .wmc-dl__deco {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 140px;
+    background-image: var(--wmc-ink-mountain);
+    background-repeat: repeat-x;
+    background-position: left bottom;
+    background-size: 940px 204px;
+    opacity: 0.42;
+    pointer-events: none;
+    mask-image: linear-gradient(180deg, transparent 0%, #000 72%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 72%);
+  }
+
+  .wmc-dl__latestMain {
+    position: relative;
+    z-index: 2;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .wmc-dl__label {
+    font-size: 11.5px;
+    letter-spacing: 0.22em;
+    color: var(--wmc-ink-4);
+  }
+
+  /* 「最新正式版：26.3」——版本号用墨黑粗宋体大字 */
+  .wmc-dl__version {
+    margin-top: 6px;
+    font-family: var(--wmc-font-serif);
+    font-size: 38px;
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.05em;
+    line-height: 1.1;
+    color: var(--wmc-ink);
+  }
+
+  .wmc-dl__version--none {
+    font-size: 30px;
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-dl__latestMeta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .wmc-dl__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    color: var(--wmc-ink-3);
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--wmc-hairline);
+    border-radius: var(--wmc-r-pill);
+  }
+
+  .wmc-dl__chip b {
+    font-weight: var(--wmc-fw-bold);
+    color: var(--wmc-ink);
+  }
+
+  .wmc-dl__chip--warn {
+    color: var(--wmc-cinnabar-dark);
+    border-color: var(--wmc-cinnabar-line);
+    background: var(--wmc-cinnabar-soft);
+  }
+
+  .wmc-dl__latestAction {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+  }
+
+  /* 大号印章按钮（复用首页 .wmc-sealBtn，这里只调尺寸） */
+  .wmc-dl__installAll {
+    min-width: 224px;
+    padding: 18px 40px;
+    font-size: 19px;
+    letter-spacing: 0.22em;
+  }
+
+  /* ================================================================ 筛选栏 */
+  .wmc-dl__bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(242, 247, 246, 0.74));
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--wmc-hairline);
+    border-radius: var(--wmc-r-md);
+    box-shadow: var(--wmc-sh-inset);
+  }
+
+  .wmc-dl__search {
+    position: relative;
+    flex: 1 1 220px;
+    min-width: 160px;
+  }
+
+  .wmc-dl__search input {
+    width: 100%;
+    padding: 8px 14px 8px 32px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--wmc-ink);
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--wmc-hairline);
+    border-radius: var(--wmc-r-pill);
+    transition: border-color var(--wmc-dur) var(--wmc-ease),
+                box-shadow var(--wmc-dur) var(--wmc-ease),
+                background-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-dl__search input::placeholder { color: var(--wmc-ink-4); }
+
+  .wmc-dl__search input:focus {
+    outline: none;
+    background: #FFFFFF;
+    border-color: var(--wmc-jade-line);
+    box-shadow: 0 0 0 3px var(--wmc-jade-soft);
+  }
+
+  .wmc-dl__searchIcon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    color: var(--wmc-ink-4);
+    pointer-events: none;
+  }
+
+  .wmc-dl__searchIcon svg { width: 100%; height: 100%; }
+
+  .wmc-dl__refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    color: var(--wmc-jade-deep);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--wmc-jade-line);
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    transition: background-color var(--wmc-dur) var(--wmc-ease),
+                border-color var(--wmc-dur) var(--wmc-ease),
+                transform var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-dl__refresh:hover {
+    background: var(--wmc-jade-soft);
+    border-color: var(--wmc-jade);
+    transform: translateY(-1px);
+  }
+
+  .wmc-dl__refresh[disabled] { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+  .wmc-dl__refreshIcon { display: inline-flex; width: 13px; height: 13px; }
+  .wmc-dl__refreshIcon svg { width: 100%; height: 100%; }
+
+  /* 计数与来源说明 */
+  .wmc-dl__count {
+    margin-left: auto;
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    color: var(--wmc-ink-3);
+  }
+
+  .wmc-dl__count b { color: var(--wmc-ink); font-weight: var(--wmc-fw-bold); }
+
+  /* ================================================================ 版本列表 */
+  .wmc-dl__list {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--wmc-paper);
+    border: 1px solid var(--wmc-hairline);
+    border-radius: var(--wmc-r-lg);
+    box-shadow: var(--wmc-sh-1);
+  }
+
+  .wmc-dl__row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) 92px 168px 108px;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 18px;
+    border-top: 1px solid var(--wmc-hairline);
+    transition: background-color var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-dl__row:first-child { border-top: 0; }
+
+  /* 悬浮整行：极浅青色底 */
+  .wmc-dl__row:hover { background: rgba(78, 140, 126, 0.06); }
+
+  /* 大字版本号 */
+  .wmc-dl__rowVer {
+    font-family: var(--wmc-font-serif);
+    font-size: 17px;
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.04em;
+    color: var(--wmc-ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* 类型标签 */
+  .wmc-dl__tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 9px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    border-radius: var(--wmc-r-sm);
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .wmc-dl__tag--release {
+    color: var(--wmc-jade-deep);
+    background: var(--wmc-jade-soft);
+    border-color: var(--wmc-jade-line);
+  }
+
+  .wmc-dl__tag--snapshot {
+    color: var(--wmc-indigo);
+    background: rgba(47, 72, 88, 0.08);
+    border-color: var(--wmc-indigo-line);
+  }
+
+  .wmc-dl__tag--old {
+    color: var(--wmc-ink-3);
+    background: rgba(43, 58, 66, 0.05);
+    border-color: var(--wmc-line);
+  }
+
+  /* 愚人节版用朱砂点缀 */
+  .wmc-dl__tag--fools {
+    color: var(--wmc-cinnabar-dark);
+    background: var(--wmc-cinnabar-soft);
+    border-color: var(--wmc-cinnabar-line);
+  }
+
+  .wmc-dl__rowTime {
+    font-family: var(--wmc-font-mono);
+    font-size: 12px;
+    color: var(--wmc-ink-3);
+  }
+
+  /* 朱砂红安装按钮 */
+  .wmc-dl__rowAct {
+    justify-self: end;
+    padding: 7px 20px;
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: #FFF4F1;
+    background: var(--wmc-cinnabar);
+    border: 1px solid var(--wmc-cinnabar-dark);
+    border-radius: var(--wmc-r-sm);
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255, 244, 241, 0.25);
+    transition: background-color var(--wmc-dur) var(--wmc-ease),
+                transform var(--wmc-dur) var(--wmc-ease),
+                box-shadow var(--wmc-dur) var(--wmc-ease);
+  }
+
+  .wmc-dl__rowAct:hover {
+    background: var(--wmc-cinnabar-dark);
+    transform: translateY(-1px);
+    box-shadow: inset 0 0 0 1px rgba(255, 244, 241, 0.35), 0 6px 16px rgba(163, 58, 67, 0.26);
+  }
+
+  .wmc-dl__rowAct[disabled] { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* ================================================================ 骨架屏 */
+  .wmc-dl__skeleton {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) 92px 168px 108px;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 18px;
+    border-top: 1px solid var(--wmc-hairline);
+  }
+
+  .wmc-dl__skeleton:first-child { border-top: 0; }
+
+  .wmc-dl__bone {
+    height: 16px;
+    border-radius: var(--wmc-r-sm);
+    background: linear-gradient(90deg, var(--wmc-paper-2), var(--wmc-paper-3), var(--wmc-paper-2));
+    background-size: 200% 100%;
+    animation: wmc-dl-bone 1.35s linear infinite;
+  }
+
+  .wmc-dl__bone--act {
+    justify-self: end;
+    width: 72px;
+    height: 30px;
+    border-radius: var(--wmc-r-sm);
+  }
+
+  @keyframes wmc-dl-bone {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ================================================================ 错误 / 空状态 */
+  .wmc-dl__error {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px 20px;
+    border-top: 1px solid var(--wmc-hairline);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--wmc-cinnabar-dark);
+  }
+
+  .wmc-dl__errorTitle {
+    font-weight: var(--wmc-fw-bold);
+    letter-spacing: 0.06em;
+  }
+
+  .wmc-dl__errorHint { color: var(--wmc-ink-3); font-size: 12px; }
+
+  .wmc-dl__empty {
+    padding: 34px 20px;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: var(--wmc-ink-3);
+  }
+
+  /* ================================================================ 窄窗口 */
+  @media (max-width: 1080px) {
+    .wmc-dl__row,
+    .wmc-dl__skeleton { grid-template-columns: minmax(120px, 1fr) 84px 132px 100px; }
+  }
+
+  @media (max-width: 880px) {
+    .wmc-dl__latest { flex-direction: column; align-items: flex-start; }
+    .wmc-dl__row,
+    .wmc-dl__skeleton { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+    .wmc-dl__rowTime { display: none; }
+    .wmc-dl__skeleton .wmc-dl__bone:nth-child(3) { display: none; }
+  }
+}

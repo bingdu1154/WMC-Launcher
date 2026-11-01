@@ -1,0 +1,36 @@
+<!--
+  WMC · 运行环境面板 —— 可直接粘贴到你的 Electron 渲染页里
+  ---------------------------------------------------------------------------
+  用法：
+    import { createBridge } from './scripts/wmc-bridge.js';
+    import { mountRuntimePanel } from './scripts/wmc-runtime-panel.js';
+    const bridge = createBridge();
+    await mountRuntimePanel(document.querySelector('[data-wmc-env]'), { bridge });
+
+  说明：分组与每一行都由 JS 生成（数据驱动），所以这里只保留骨架与固定文案。
+        顶部汇总 chip 与底部动作区是常驻的，不要删。
+-->
+<div class="wmc-scope" data-wmc-panel="runtime">
+  <section class="wmc-env" data-wmc-env>
+
+    <div class="wmc-env__panel">
+      <header class="wmc-env__hd">
+        <div>
+          <div class="wmc-env__title">运行环境</div>
+          <div class="wmc-env__subtitle">Java 运行时 · 物理内存 · 下载源 · 游戏目录</div>
+        </div>
+        <div class="wmc-env__summary" data-wmc-env-summary></div>
+      </header>
+
+      <div class="wmc-env__body" data-wmc-env-body></div>
+
+      <footer class="wmc-env__actions">
+        <span class="wmc-env__actionsMeta" data-wmc-env-meta></span>
+        <span class="wmc-spacer"></span>
+        <button class="wmc-btn wmc-btn--ghost" type="button" data-wmc-env-reset>恢复推荐值</button>
+        <button class="wmc-btn wmc-btn--primary" type="button" data-wmc-env-apply>保存并应用</button>
+      </footer>
+    </div>
+
+  </section>
+</div>
